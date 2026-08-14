@@ -81,27 +81,8 @@ namespace DeviceUSB
         }
     }
 
-    NTSTATUS
-    DualSenseConfigContReaderForInterruptEndPoint(
-            PDEVICE_CONTEXT DeviceContext
-    )
-    /*++
-
-    Routine Description:
-
-        This routine configures a continuous reader on the
-        interrupt endpoint. It's called from the PrepareHarware event.
-
-    Arguments:
-
-        DeviceContext - Pointer to device context structure
-
-    Return Value:
-
-        NT status value
-
-    --*/
-    {
+    NTSTATUS DualSenseConfigContReaderForInterruptEndPoint(
+             PDEVICE_CONTEXT DeviceContext){
         WDF_USB_CONTINUOUS_READER_CONFIG contReaderConfig;
         NTSTATUS status = STATUS_SUCCESS;
 
@@ -133,12 +114,10 @@ namespace DeviceUSB
         return status;
     }
 
-    NTSTATUS
-    DualSenseEvtDevicePrepareHardware(
+    NTSTATUS DualSenseEvtDevicePrepareHardware(
             _In_ WDFDEVICE Device,
             _In_ WDFCMRESLIST ResourcesRaw,
-            _In_ WDFCMRESLIST ResourcesTranslated
-    ) {
+            _In_ WDFCMRESLIST ResourcesTranslated) {
         UNREFERENCED_PARAMETER(ResourcesTranslated);
         UNREFERENCED_PARAMETER(ResourcesRaw);
 
