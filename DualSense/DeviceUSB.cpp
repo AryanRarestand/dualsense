@@ -277,10 +277,10 @@ namespace DeviceUSB
 
         deviceContext = GetDeviceContext(Device);
 
-        if (deviceContext->DsUsbDevice== NULL) {
+        if (deviceContext->UsbDevice== NULL) {
             status = WdfUsbTargetDeviceCreate(Device,
                                               WDF_NO_OBJECT_ATTRIBUTES,
-                                              &deviceContext->DsUsbDevice);
+                                              &deviceContext->UsbDevice);
 
             if (!NT_SUCCESS(status)) {
                 print_kd("[DualSense] WdfUsbTargetDeviceCreate failed 0x%x\n", status);
@@ -297,7 +297,7 @@ namespace DeviceUSB
 
         WDF_USB_DEVICE_SELECT_CONFIG_PARAMS_INIT_MULTIPLE_INTERFACES(&configParams, 0, NULL);
 
-        status = WdfUsbTargetDeviceSelectConfig(deviceContext->DsUsbDevice,
+        status = WdfUsbTargetDeviceSelectConfig(deviceContext->UsbDevice,
                                                 WDF_NO_OBJECT_ATTRIBUTES,
                                                 &configParams);
         if (!NT_SUCCESS(status)) {
@@ -305,15 +305,15 @@ namespace DeviceUSB
             return status;
         }
 
-        deviceContext->NumDsUsbInterfaces = WdfUsbTargetDeviceGetNumInterfaces(deviceContext->DsUsbDevice);
-        if (deviceContext->DsUsbInterfaces != NULL) {
-            ExFreePoolWithTag(deviceContext->DsUsbInterfaces, 'SIKT');
+        deviceContext->UsbInterfaceCount = WdfUsbTargetDeviceGetNumInterfaces(deviceContext->UsbDevice);
+        if (deviceContext->UsbInterfaces != NULL) {
+            ExFreePoolWithTag(deviceContext->UsbInterfaces, 'SIKT');
         }
-        deviceContext->DsUsbInterfaces = (WDFUSBINTERFACE*)ExAllocatePool2(POOL_FLAG_NON_PAGED, deviceContext->NumDsUsbInterfaces * sizeof(WDFUSBINTERFACE), 'SIKT');
+        deviceContext->UsbInterfaces = (WDFUSBINTERFACE*)ExAllocatePool2(POOL_FLAG_NON_PAGED, deviceContext->UsbInterfaceCount * sizeof(WDFUSBINTERFACE), 'SIKT');
 
-        print_kd("[DualSense] Number of dsUsbInterfaces: %hhu\n", deviceContext->NumDsUsbInterfaces);
+        print_kd("[DualSense] Number of dsUsbInterfaces: %hhu\n", deviceContext->UsbInterfaceCount);
 
-        if (!deviceContext->DsUsbInterfaces) {
+        if (!deviceContext->UsbInterfaces) {
             print_kd("[DualSense] Cannot allocate DsUsbInterfaces.\n");
             return STATUS_INSUFFICIENT_RESOURCES;
         }
@@ -338,18 +338,18 @@ namespace DeviceUSB
         }
 
         WdfUsbTargetDeviceGetDeviceDescriptor(
-                deviceContext->DsUsbDevice,
+                deviceContext->UsbDevice,
                 pdsDeviceDescriptor
         );
 
         UCHAR hidInterfaceNumber = 0;
 
-        for (UCHAR i = 0; i < deviceContext->NumDsUsbInterfaces; i++) {
-            deviceContext->DsUsbInterfaces[i] = WdfUsbTargetDeviceGetInterface(deviceContext->DsUsbDevice, i);
+        for (UCHAR i = 0; i < deviceContext->UsbInterfaceCount; i++) {
+            deviceContext->UsbInterfaces[i] = WdfUsbTargetDeviceGetInterface(deviceContext->UsbDevice, i);
 
             // Get the descriptor to check what kind of interface this is
             USB_INTERFACE_DESCRIPTOR interfaceDescriptor;
-            WdfUsbInterfaceGetDescriptor(deviceContext->DsUsbInterfaces[i], 0, &interfaceDescriptor);
+            WdfUsbInterfaceGetDescriptor(deviceContext->UsbInterfaces[i], 0, &interfaceDescriptor);
 
             print_kd("[DualSense] Interface %d: Class 0x%02X, SubClass 0x%02X\n",
                      i, interfaceDescriptor.bInterfaceClass, interfaceDescriptor.bInterfaceSubClass);
@@ -357,7 +357,7 @@ namespace DeviceUSB
             // 0x03 is USB_DEVICE_CLASS_HUMAN_INTERFACE
             if (interfaceDescriptor.bInterfaceClass == 0x03) {
                 print_kd("[DualSense] Found HID Interface at index %d!\n", i);
-                deviceContext->DsHidUsbInterface = deviceContext->DsUsbInterfaces[i];
+                deviceContext->HidInterface = deviceContext->UsbInterfaces[i];
                 hidInterfaceNumber = interfaceDescriptor.bInterfaceNumber;
             }
 
@@ -375,7 +375,7 @@ namespace DeviceUSB
         WDF_MEMORY_DESCRIPTOR_INIT_BUFFER(&memDesc, &deviceContext->DsHidDescriptor, sizeof(HID_DESCRIPTOR));
         ULONG bytesTransferred = 0;
         status = WdfUsbTargetDeviceSendControlTransferSynchronously(
-                deviceContext->DsUsbDevice,
+                deviceContext->UsbDevice,
                 WDF_NO_HANDLE, // Optional WDFREQUEST
                 NULL,          // PWDF_REQUEST_SEND_OPTIONS
                 &controlSetupPacket,
@@ -430,7 +430,7 @@ namespace DeviceUSB
         WDF_MEMORY_DESCRIPTOR_INIT_BUFFER(&memDesc, reportDescBuffer, reportDescLength);
         // 5. Send the transfer to fetch the Report Descriptor
         status = WdfUsbTargetDeviceSendControlTransferSynchronously(
-                deviceContext->DsUsbDevice,
+                deviceContext->UsbDevice,
                 WDF_NO_HANDLE,
                 NULL,
                 &controlSetupPacket,
@@ -450,13 +450,13 @@ namespace DeviceUSB
         print_kd("\n");
 
 
-        UCHAR numPipes = WdfUsbInterfaceGetNumConfiguredPipes(deviceContext->DsHidUsbInterface);
+        UCHAR numPipes = WdfUsbInterfaceGetNumConfiguredPipes(deviceContext->HidInterface);
 
         for (UCHAR i = 0; i < numPipes; i++) {
             WDF_USB_PIPE_INFORMATION pipeInfo;
             WDF_USB_PIPE_INFORMATION_INIT(&pipeInfo);
 
-            WDFUSBPIPE pipe = WdfUsbInterfaceGetConfiguredPipe(deviceContext->DsHidUsbInterface, i, &pipeInfo);
+            WDFUSBPIPE pipe = WdfUsbInterfaceGetConfiguredPipe(deviceContext->HidInterface, i, &pipeInfo);
 
             // We want an Interrupt pipe, and it MUST be an IN endpoint (Device to Host)
             if (pipeInfo.PipeType == WdfUsbPipeTypeInterrupt && WdfUsbTargetPipeIsInEndpoint(pipe)) {

@@ -99,9 +99,9 @@ DualSenseEvtDeviceContextCleanup(
 )
 {
     PDEVICE_CONTEXT deviceContext = GetDeviceContext(DeviceObject);
-    if (deviceContext->DsUsbInterfaces != NULL) {
-        ExFreePoolWithTag(deviceContext->DsUsbInterfaces, 'SIKT');
-        deviceContext->DsUsbInterfaces = NULL;
+    if (deviceContext->UsbInterfaces != NULL) {
+        ExFreePoolWithTag(deviceContext->UsbInterfaces, 'SIKT');
+        deviceContext->UsbInterfaces = NULL;
     }
 }
 

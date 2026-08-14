@@ -17,68 +17,46 @@ Environment:
 
 EXTERN_C_START
 
-//TODO:
-//clean code the _DEVICE_CONTEXT
-
 //
-// The device context performs the same job as
-// a WDM device extension in the driver frameworks
+// The device context performs the same job as a WDM device extension in the driver frameworks
 //
 typedef struct _DEVICE_CONTEXT
 {
+    //
+    // USB / HID
+    //
+    WDFUSBDEVICE       UsbDevice;
+    WDFUSBINTERFACE*   UsbInterfaces;
+    WDFUSBINTERFACE    HidInterface;
+    UCHAR              UsbInterfaceCount;
+    WDFUSBPIPE         HidInterruptPipe;
+
+    HID_DESCRIPTOR     DsHidDescriptor;
+    WDFMEMORY          DsReportDescriptorHandle;
+    WDFMEMORY          DsDeviceDescriptorHandle;
 
     //
-    //WDF handles for USB Target 
+    // Touchpad
     //
-    WDFUSBDEVICE      DsUsbDevice;
-    WDFUSBINTERFACE*  DsUsbInterfaces;
-    WDFUSBINTERFACE   DsHidUsbInterface;
-    UCHAR             NumDsUsbInterfaces;
-    WDFUSBPIPE        HidInterruptPipe;
-
-    HID_DESCRIPTOR    DsHidDescriptor;
-    WDFMEMORY         DsReportDescriptorHandle;
-
-    BOOLEAN Finger1Active;
-    SHORT   Finger1PrevX;
-    SHORT   Finger1PrevY;
-    BOOLEAN Finger2Active;
-    SHORT   Finger2PrevX;
-    SHORT   Finger2PrevY;
+    BOOLEAN             Finger1Active;
+    SHORT               Finger1PrevX;
+    SHORT               Finger1PrevY;
+    BOOLEAN             Finger2Active;
+    SHORT               Finger2PrevX;
+    SHORT               Finger2PrevY;
 
     //
-    //Device descriptor for the USB device
+    // Power / Device State
     //
-    WDFMEMORY DsDeviceDescriptorHandle;
+    UCHAR               CurrentSwitchState;
+    UCHAR               LatestToggledSwitch;
+    BOOLEAN             IsPowerUpSwitchState;
 
     //
-    // Switch state.
+    // I/O
     //
-    UCHAR    CurrentSwitchState;
-
-    //
-    // This variable stores state for the swicth that got toggled most recently
-    // (the device returns the state of all the switches and not just the 
-    // one that got toggled).
-    //
-    UCHAR    LatestToggledSwitch;
-
-    //
-    // Interrupt endpoints sends switch state when first started 
-    // or when resuming from suspend. We need to ignore that data.
-    //
-    BOOLEAN  IsPowerUpSwitchState;
-
-    //
-    // WDF Queue for read IOCTLs from hidclass that get satisfied from 
-    // USB interrupt endpoint
-    //
-    WDFQUEUE   InterruptMsgQueue;
-
-    //
-    // Handle debouncing of switchpack
-    //
-    WDFTIMER DebounceTimer;
+    WDFQUEUE             InterruptMsgQueue;
+    WDFTIMER             DebounceTimer;
 
 } DEVICE_CONTEXT, *PDEVICE_CONTEXT;
 
@@ -89,7 +67,6 @@ typedef struct _DEVICE_CONTEXT
 //
 WDF_DECLARE_CONTEXT_TYPE_WITH_NAME(DEVICE_CONTEXT, GetDeviceContext)
 EVT_WDF_OBJECT_CONTEXT_CLEANUP DualSenseEvtDeviceContextCleanup;
-
 
 EVT_WDF_DEVICE_D0_ENTRY DualSenseEvtDeviceD0Entry;/*++
 
@@ -130,7 +107,6 @@ EVT_WDF_DEVICE_D0_EXIT DualSenseEvtDeviceD0Exit;
 //
 // Function to initialize the device and its callbacks
 //
-
 NTSTATUS DualSenseCreateDevice(_Inout_ PWDFDEVICE_INIT DeviceInit);/*++
 
 Routine Description:
