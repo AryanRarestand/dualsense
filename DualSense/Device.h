@@ -20,9 +20,6 @@ EXTERN_C_START
 //TODO:
 //clean code the _DEVICE_CONTEXT
 
-extern const unsigned char DualSenseUSBReportDescriptor[];
-extern HID_DESCRIPTOR DualSenseDeviceDescriptor;
-
 //
 // The device context performs the same job as
 // a WDM device extension in the driver frameworks

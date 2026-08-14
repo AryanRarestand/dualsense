@@ -3,6 +3,9 @@
 
 
 namespace DeviceUSB{
+    extern const unsigned char DualSenseUSBReportDescriptor[];
+    extern HID_DESCRIPTOR DualSenseDeviceDescriptor;
+
     NTSTATUS
     DualSenseConfigContReaderForInterruptEndPoint(PDEVICE_CONTEXT DeviceContext); /*++
 
