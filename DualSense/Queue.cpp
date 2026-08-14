@@ -124,14 +124,14 @@ DualSenseEvtIoInternalDeviceControl(
 
 
         status = RequestCopyFromBuffer(Request,
-            (PVOID) & DualSenseReportDescriptor,
+            (PVOID) & DualSenseUSBReportDescriptor,
             DualSenseDeviceDescriptor.DescriptorList[0].wReportLength);
 
 
         print_kd("[DualSense] HID Report Bytes:\n");
 
         for (ULONG i = 0; i < DualSenseDeviceDescriptor.DescriptorList[0].wReportLength; i++) {
-            print_kd("%02X ", DualSenseReportDescriptor[i]);
+            print_kd("%02X ", DualSenseUSBReportDescriptor[i]);
         }
         print_kd("\n");
 

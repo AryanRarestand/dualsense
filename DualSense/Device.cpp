@@ -17,7 +17,7 @@ Environment:
 #include "driver.h"
 
 // Define the descriptors here to avoid LNK2005 multiply defined symbols
-const unsigned char DualSenseReportDescriptor[] = {
+const unsigned char DualSenseUSBReportDescriptor[] = {
     // =========================================================================
     // TOP LEVEL COLLECTION 1: GAMEPAD (Original DualSense Descriptor)
     // =========================================================================
@@ -155,7 +155,7 @@ HID_DESCRIPTOR DualSenseDeviceDescriptor = {
     {           // DescriptorList array
         {       // DescriptorList[0]
             0x22, // bReportType
-            sizeof(DualSenseReportDescriptor) // wReportLength
+            sizeof(DualSenseUSBReportDescriptor) // wReportLength
         }
     }
 };
