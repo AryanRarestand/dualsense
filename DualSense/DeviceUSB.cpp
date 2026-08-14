@@ -1,14 +1,14 @@
 #include "DeviceUSB.h"
 
 
-namespace DeviceUSB
-{
+namespace DeviceUSB {
     // Define the descriptors here to avoid LNK2005 multiply defined symbols
     const unsigned char DualSenseUSBReportDescriptor[] = {
             // =========================================================================
             // TOP LEVEL COLLECTION 1: GAMEPAD (Original DualSense Descriptor)
             // =========================================================================
-            0x05, 0x01,        // Usage Page (Generic Desktop Ctrls) - This tells the OS we are defining a generic desktop device
+            0x05,
+            0x01,        // Usage Page (Generic Desktop Ctrls) - This tells the OS we are defining a generic desktop device
             0x09, 0x05,        // Usage (Game Pad) - Specifically, this collection is a Gamepad
             0xA1, 0x01,        // Collection (Application) - Start of the Gamepad collection
             0x85, 0x01,        //   Report ID (1) - All input reports for this Gamepad must start with byte 0x01
@@ -148,21 +148,20 @@ namespace DeviceUSB
     };
 
     VOID DualSenseEvtUsbInterruptPipeReadComplete(
-            WDFUSBPIPE  Pipe,
-            WDFMEMORY   Buffer,
-            size_t      NumBytesTransferred,
-            WDFCONTEXT  Context
-    )
-    {
-        PDEVICE_CONTEXT     deviceContext = (PDEVICE_CONTEXT)Context;
-        NTSTATUS            status;
-        WDFREQUEST          request;
+            WDFUSBPIPE Pipe,
+            WDFMEMORY Buffer,
+            size_t NumBytesTransferred,
+            WDFCONTEXT Context
+    ) {
+        PDEVICE_CONTEXT deviceContext = (PDEVICE_CONTEXT) Context;
+        NTSTATUS status;
+        WDFREQUEST request;
         UNREFERENCED_PARAMETER(Pipe);
 
         if (NumBytesTransferred == 0)
             return;
 
-        PUCHAR usbData = (PUCHAR)WdfMemoryGetBuffer(Buffer, NULL);
+        PUCHAR usbData = (PUCHAR) WdfMemoryGetBuffer(Buffer, NULL);
         // =======================================================
         // 1. POP REQUEST 1: Send the raw Gamepad Report (0x01)
         // =======================================================
@@ -177,7 +176,7 @@ namespace DeviceUSB
         if (NumBytesTransferred >= 41) { // Safety check to ensure touchpad bytes exist
             status = WdfIoQueueRetrieveNextRequest(deviceContext->InterruptMsgQueue, &request);
             if (NT_SUCCESS(status)) {
-                VIRTUAL_MOUSE_REPORT mouseReport = { 0 };
+                VIRTUAL_MOUSE_REPORT mouseReport = {0};
                 mouseReport.ReportId = 0x41; // MATCHES NEW DESCRIPTOR
                 PDS_TOUCH_POINT points = (PDS_TOUCH_POINT)(usbData + 33);
                 BOOLEAN f1Active = (points[0].Contact & 0x80) == 0;
@@ -191,8 +190,7 @@ namespace DeviceUSB
                 if (f1Active && deviceContext->Finger1Active) {
                     dx = (f1X - deviceContext->Finger1PrevX) / 2;
                     dy = (f1Y - deviceContext->Finger1PrevY) / 2;
-                }
-                else if (f2Active && deviceContext->Finger2Active) {
+                } else if (f2Active && deviceContext->Finger2Active) {
                     dx = (f2X - deviceContext->Finger2PrevX) / 2;
                     dy = (f2Y - deviceContext->Finger2PrevY) / 2;
                 }
@@ -201,14 +199,13 @@ namespace DeviceUSB
                 if (dx < -127) dx = -127;
                 if (dy > 127) dy = 127;
                 if (dy < -127) dy = -127;
-                mouseReport.DeltaX = (CHAR)dx;
-                mouseReport.DeltaY = (CHAR)dy;
+                mouseReport.DeltaX = (CHAR) dx;
+                mouseReport.DeltaY = (CHAR) dy;
                 BOOLEAN isPadClicked = (usbData[10] & 0x02) != 0;
                 if (isPadClicked) {
                     if (f1Active && f2Active) {
                         mouseReport.Buttons |= 0x02; // Right Click (2 fingers + click)
-                    }
-                    else {
+                    } else {
                         mouseReport.Buttons |= 0x01; // Left Click (1 finger + click)
                     }
                 }
@@ -224,8 +221,7 @@ namespace DeviceUSB
         }
     }
 
-    NTSTATUS DualSenseConfigContReaderForInterruptEndPoint(
-             PDEVICE_CONTEXT DeviceContext){
+    NTSTATUS DualSenseConfigContReaderForInterruptEndPoint(PDEVICE_CONTEXT DeviceContext) {
         WDF_USB_CONTINUOUS_READER_CONFIG contReaderConfig;
         NTSTATUS status = STATUS_SUCCESS;
 
@@ -257,233 +253,271 @@ namespace DeviceUSB
         return status;
     }
 
+
+    #pragma alloc_text(PAGE, DualSenseInitUsbTarget)
+    #pragma alloc_text(PAGE, DualSenseFindHidInterface)
+    #include <ntddk.h>
+    #include <wdf.h>
+
     NTSTATUS DualSenseEvtDevicePrepareHardware(
             _In_ WDFDEVICE Device,
             _In_ WDFCMRESLIST ResourcesRaw,
             _In_ WDFCMRESLIST ResourcesTranslated) {
-        UNREFERENCED_PARAMETER(ResourcesTranslated);
         UNREFERENCED_PARAMETER(ResourcesRaw);
+        UNREFERENCED_PARAMETER(ResourcesTranslated);
 
-        NTSTATUS                            status = STATUS_SUCCESS;
-        PDEVICE_CONTEXT                     deviceContext = NULL;
-        WDF_USB_DEVICE_SELECT_CONFIG_PARAMS configParams;
-        WDF_USB_CONTROL_SETUP_PACKET        controlSetupPacket;
-        WDF_OBJECT_ATTRIBUTES               attributes;
-        PUSB_DEVICE_DESCRIPTOR              pdsDeviceDescriptor = NULL;
+        NTSTATUS status = STATUS_SUCCESS;
+        PDEVICE_CONTEXT deviceContext = NULL;
+        UCHAR hidInterfaceNumber = 0;
 
         PAGED_CODE();
 
-        print_kd("[DualSense] HidFx2EvtDevicePrepareHardware Enter\n");
+        print_kd("Entering PrepareHardware\n");
 
         deviceContext = GetDeviceContext(Device);
 
-        if (deviceContext->UsbDevice== NULL) {
-            status = WdfUsbTargetDeviceCreate(Device,
-                                              WDF_NO_OBJECT_ATTRIBUTES,
-                                              &deviceContext->UsbDevice);
+        // ۱. ساخت و پیکربندی USB Target
+        status = DualSenseInitUsbTarget(Device, deviceContext);
+        if (!NT_SUCCESS(status)) {
+            print_kd("Failed to initialize USB Target Device. Status: 0x%08X\n", status);
+            return status;
+        }
 
+        // ۲. یافتن Interface مربوط به HID و دریافت Device Descriptor
+        status = DualSenseFindHidInterface(Device, deviceContext, &hidInterfaceNumber);
+        if (!NT_SUCCESS(status)) {
+            print_kd("Failed to find HID Interface. Status: 0x%08X\n", status);
+            return status;
+        }
+
+        // ۳. دریافت HID Descriptor و Report Descriptor
+        status = DualSenseFetchHidAndReportDescriptors(Device, deviceContext, hidInterfaceNumber);
+        if (!NT_SUCCESS(status)) {
+            print_kd("Failed to fetch HID/Report Descriptors. Status: 0x%08X\n", status);
+            return status;
+        }
+
+        // ۴. کانفیگ Interrupt Pipe و Continuous Reader
+        status = DualSenseInitInterruptPipe(deviceContext);
+        if (!NT_SUCCESS(status)) {
+            print_kd("Failed to setup Interrupt Pipe. Status: 0x%08X\n", status);
+            return status;
+        }
+
+        print_kd("PrepareHardware completed successfully\n");
+        return STATUS_SUCCESS;
+    }
+
+    // Helper PrepareHardware: USB Target Init
+    NTSTATUS DualSenseInitUsbTarget(_In_ WDFDEVICE Device, _In_ PDEVICE_CONTEXT DeviceContext) {
+        NTSTATUS status = STATUS_SUCCESS;
+        WDF_USB_DEVICE_SELECT_CONFIG_PARAMS configParams;
+
+        PAGED_CODE();
+
+        if (DeviceContext->UsbDevice == NULL) {
+            status = WdfUsbTargetDeviceCreate(Device, WDF_NO_OBJECT_ATTRIBUTES, &DeviceContext->UsbDevice);
             if (!NT_SUCCESS(status)) {
-                print_kd("[DualSense] WdfUsbTargetDeviceCreate failed 0x%x\n", status);
+                print_kd("WdfUsbTargetDeviceCreate failed: 0x%08X\n", status);
                 return status;
             }
-
-            //
-            // TODO: If you are fetching configuration descriptor from device for
-            // selecting a configuration or to parse other descriptors, call
-            // HidFx2ValidateConfigurationDescriptor
-            // to do basic validation on the descriptors before you access them.
-            //
         }
 
         WDF_USB_DEVICE_SELECT_CONFIG_PARAMS_INIT_MULTIPLE_INTERFACES(&configParams, 0, NULL);
-
-        status = WdfUsbTargetDeviceSelectConfig(deviceContext->UsbDevice,
-                                                WDF_NO_OBJECT_ATTRIBUTES,
-                                                &configParams);
+        status = WdfUsbTargetDeviceSelectConfig(DeviceContext->UsbDevice, WDF_NO_OBJECT_ATTRIBUTES, &configParams);
         if (!NT_SUCCESS(status)) {
-            print_kd("[DualSense] WdfUsbTargetDeviceSelectConfig failed %!STATUS!\n", status);
-            return status;
+            print_kd("WdfUsbTargetDeviceSelectConfig failed: 0x%08X\n", status);
         }
 
-        deviceContext->UsbInterfaceCount = WdfUsbTargetDeviceGetNumInterfaces(deviceContext->UsbDevice);
-        if (deviceContext->UsbInterfaces != NULL) {
-            ExFreePoolWithTag(deviceContext->UsbInterfaces, 'SIKT');
+        return status;
+    }
+
+    // Helper PrepareHardware: Find HID Interface & Retrieve Device Descriptor
+    NTSTATUS DualSenseFindHidInterface(_In_ WDFDEVICE Device, _In_ PDEVICE_CONTEXT DeviceContext, _Out_ PUCHAR
+                                       HidInterfaceNumber) {
+        NTSTATUS status = STATUS_SUCCESS;
+        WDF_OBJECT_ATTRIBUTES attributes;
+        PUSB_DEVICE_DESCRIPTOR pdsDeviceDescriptor = NULL;
+        BOOLEAN hidFound = FALSE;
+
+        PAGED_CODE();
+
+        *HidInterfaceNumber = 0;
+        DeviceContext->UsbInterfaceCount = WdfUsbTargetDeviceGetNumInterfaces(DeviceContext->UsbDevice);
+
+        if (DeviceContext->UsbInterfaces != NULL) {
+            ExFreePoolWithTag(DeviceContext->UsbInterfaces, 'SIKT');
         }
-        deviceContext->UsbInterfaces = (WDFUSBINTERFACE*)ExAllocatePool2(POOL_FLAG_NON_PAGED, deviceContext->UsbInterfaceCount * sizeof(WDFUSBINTERFACE), 'SIKT');
 
-        print_kd("[DualSense] Number of dsUsbInterfaces: %hhu\n", deviceContext->UsbInterfaceCount);
+        DeviceContext->UsbInterfaces = (WDFUSBINTERFACE *) ExAllocatePool2(
+                POOL_FLAG_NON_PAGED,
+                DeviceContext->UsbInterfaceCount * sizeof(WDFUSBINTERFACE),
+                'SIKT'
+        );
 
-        if (!deviceContext->UsbInterfaces) {
-            print_kd("[DualSense] Cannot allocate DsUsbInterfaces.\n");
+        if (!DeviceContext->UsbInterfaces) {
+            print_kd("Memory allocation failed for UsbInterfaces array\n");
             return STATUS_INSUFFICIENT_RESOURCES;
         }
 
+        print_kd("Total USB Interfaces detected: %hhu\n", DeviceContext->UsbInterfaceCount);
 
-
+        //Getting Device Descriptor
         WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
         attributes.ParentObject = Device;
-
         status = WdfMemoryCreate(
                 &attributes,
                 NonPagedPoolNx,
-                0,
+                'SIKT',
                 sizeof(USB_DEVICE_DESCRIPTOR),
-                &deviceContext->DsDeviceDescriptorHandle,
-                (PVOID*) &pdsDeviceDescriptor
+                &DeviceContext->DsDeviceDescriptorHandle,
+                (PVOID * ) & pdsDeviceDescriptor
         );
 
         if (!NT_SUCCESS(status)) {
-            print_kd("[DualSense] Cannot allocate DsDeviceDescriptor.\n");
+            print_kd("WdfMemoryCreate failed for Device Descriptor: 0x%08X\n", status);
             return status;
         }
 
-        WdfUsbTargetDeviceGetDeviceDescriptor(
-                deviceContext->UsbDevice,
-                pdsDeviceDescriptor
-        );
+        WdfUsbTargetDeviceGetDeviceDescriptor(DeviceContext->UsbDevice, pdsDeviceDescriptor);
 
-        UCHAR hidInterfaceNumber = 0;
-
-        for (UCHAR i = 0; i < deviceContext->UsbInterfaceCount; i++) {
-            deviceContext->UsbInterfaces[i] = WdfUsbTargetDeviceGetInterface(deviceContext->UsbDevice, i);
-
-            // Get the descriptor to check what kind of interface this is
+        // iterating interfaces
+        for (UCHAR i = 0; i < DeviceContext->UsbInterfaceCount; i++) {
             USB_INTERFACE_DESCRIPTOR interfaceDescriptor;
-            WdfUsbInterfaceGetDescriptor(deviceContext->UsbInterfaces[i], 0, &interfaceDescriptor);
+            DeviceContext->UsbInterfaces[i] = WdfUsbTargetDeviceGetInterface(DeviceContext->UsbDevice, i);
 
-            print_kd("[DualSense] Interface %d: Class 0x%02X, SubClass 0x%02X\n",
+            WdfUsbInterfaceGetDescriptor(DeviceContext->UsbInterfaces[i], 0, &interfaceDescriptor);
+
+            print_kd("Interface %u -> Class: 0x%02X, SubClass: 0x%02X\n",
                      i, interfaceDescriptor.bInterfaceClass, interfaceDescriptor.bInterfaceSubClass);
 
-            // 0x03 is USB_DEVICE_CLASS_HUMAN_INTERFACE
+            // Class 0x03 = Human Interface Device (HID)
             if (interfaceDescriptor.bInterfaceClass == 0x03) {
-                print_kd("[DualSense] Found HID Interface at index %d!\n", i);
-                deviceContext->HidInterface = deviceContext->UsbInterfaces[i];
-                hidInterfaceNumber = interfaceDescriptor.bInterfaceNumber;
+                print_kd("HID Interface identified at index %u (Interface Number %u)\n", i,
+                         interfaceDescriptor.bInterfaceNumber);
+                DeviceContext->HidInterface = DeviceContext->UsbInterfaces[i];
+                *HidInterfaceNumber = interfaceDescriptor.bInterfaceNumber;
+                hidFound = TRUE;
             }
-
         }
 
-        WDF_USB_CONTROL_SETUP_PACKET_INIT(
-                &controlSetupPacket,
-                BmRequestDeviceToHost,
-                BmRequestToInterface, // WDF assumes BmRequestStandard for this macro
-                0x06, // USB_REQUEST_GET_DESCRIPTOR
-                (0x21 << 8) | 0, // Descriptor type (0x21 for HID), Index 0
-                hidInterfaceNumber // wIndex is the target interface number
-        );
+        return hidFound ? STATUS_SUCCESS : STATUS_NOT_FOUND;
+    }
+
+    // Helper PrepareHardware: Fetch Descriptors via Control Transfer
+    NTSTATUS DualSenseFetchHidAndReportDescriptors(_In_ WDFDEVICE Device, _In_ PDEVICE_CONTEXT DeviceContext, _In_ UCHAR
+                                                   HidInterfaceNumber) {
+        NTSTATUS status = STATUS_SUCCESS;
+        WDF_USB_CONTROL_SETUP_PACKET controlSetupPacket;
         WDF_MEMORY_DESCRIPTOR memDesc;
-        WDF_MEMORY_DESCRIPTOR_INIT_BUFFER(&memDesc, &deviceContext->DsHidDescriptor, sizeof(HID_DESCRIPTOR));
+        WDF_OBJECT_ATTRIBUTES attributes;
         ULONG bytesTransferred = 0;
-        status = WdfUsbTargetDeviceSendControlTransferSynchronously(
-                deviceContext->UsbDevice,
-                WDF_NO_HANDLE, // Optional WDFREQUEST
-                NULL,          // PWDF_REQUEST_SEND_OPTIONS
-                &controlSetupPacket,
-                &memDesc,
-                &bytesTransferred
-        );
 
-        if (!NT_SUCCESS(status)) {
-            print_kd("[DualSense] Failed to fetch HID Descriptor: 0x%x\n", status);
-            return status;
-        }
+        PAGED_CODE();
 
-        print_kd("[DualSense] HID Descriptor Bytes:\n");
-        PUCHAR hidDescBytes = (PUCHAR)&deviceContext->DsHidDescriptor;
-
-        for (ULONG i = 0; i < deviceContext->DsHidDescriptor.bLength; i++) {
-            print_kd("%02X ", hidDescBytes[i]);
-        }
-        print_kd("\n");
-
-        // 3. Look at the wReportLength inside the fetched DsHidDescriptor
-        //    and allocate memory for deviceContext->DsReportDescriptorHandle.
-        USHORT reportDescLength = deviceContext->DsHidDescriptor.DescriptorList[0].wReportLength;
-
-        WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
-        attributes.ParentObject = Device;
-        status = WdfMemoryCreate(
-                &attributes,
-                NonPagedPoolNx,
-                0, // pool tag
-                reportDescLength,
-                &deviceContext->DsReportDescriptorHandle,
-                NULL // We don't need the raw pointer immediately
-        );
-        if (!NT_SUCCESS(status)) {
-            print_kd("[DualSense] Failed to allocate memory for Report Descriptor: 0x%x\n", status);
-            return status;
-        }
-
-        // 4. Setup a second Control Transfer for the Report Descriptor (Type 0x22)
+        //Getting HID Descriptor (Type 0x21)
         WDF_USB_CONTROL_SETUP_PACKET_INIT(
                 &controlSetupPacket,
                 BmRequestDeviceToHost,
                 BmRequestToInterface,
                 0x06, // USB_REQUEST_GET_DESCRIPTOR
-                (0x22 << 8) | 0, // Descriptor type (0x22 for Report), Index 0
-                hidInterfaceNumber
+                (0x21 << 8) | 0,
+                HidInterfaceNumber
         );
 
-        // Get the raw pointer from our newly allocated memory object
-        PVOID reportDescBuffer = WdfMemoryGetBuffer(deviceContext->DsReportDescriptorHandle, NULL);
-        WDF_MEMORY_DESCRIPTOR_INIT_BUFFER(&memDesc, reportDescBuffer, reportDescLength);
-        // 5. Send the transfer to fetch the Report Descriptor
+        WDF_MEMORY_DESCRIPTOR_INIT_BUFFER(&memDesc, &DeviceContext->DsHidDescriptor, sizeof(HID_DESCRIPTOR));
+
         status = WdfUsbTargetDeviceSendControlTransferSynchronously(
-                deviceContext->UsbDevice,
+                DeviceContext->UsbDevice,
                 WDF_NO_HANDLE,
                 NULL,
                 &controlSetupPacket,
                 &memDesc,
                 &bytesTransferred
         );
+
         if (!NT_SUCCESS(status)) {
-            print_kd("[DualSense] Failed to fetch Report Descriptor: 0x%x\n", status);
+            print_kd("Control Transfer for HID Descriptor failed: 0x%08X\n", status);
             return status;
         }
 
-        print_kd("[DualSense] Successfully fetched HID and Report Descriptors!\n");
+        USHORT reportDescLength = DeviceContext->DsHidDescriptor.DescriptorList[0].wReportLength;
+        print_kd("HID Descriptor fetched successfully. Report Descriptor Length: %u bytes\n", reportDescLength);
 
-        for (ULONG i = 0; i < bytesTransferred; i++)
-            print_kd("%02X ", ((PUCHAR)reportDescBuffer)[i]);
+        //Report Descriptor
+        WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
+        attributes.ParentObject = Device;
+        status = WdfMemoryCreate(
+                &attributes,
+                NonPagedPoolNx,
+                'SIKT',
+                reportDescLength,
+                &DeviceContext->DsReportDescriptorHandle,
+                NULL
+        );
 
-        print_kd("\n");
+        if (!NT_SUCCESS(status)) {
+            print_kd("Allocation failed for Report Descriptor memory: 0x%08X\n", status);
+            return status;
+        }
 
+        //Getting Report Descriptor (Type 0x22)
+        WDF_USB_CONTROL_SETUP_PACKET_INIT(
+                &controlSetupPacket,
+                BmRequestDeviceToHost,
+                BmRequestToInterface,
+                0x06,
+                (0x22 << 8) | 0,
+                HidInterfaceNumber
+        );
 
-        UCHAR numPipes = WdfUsbInterfaceGetNumConfiguredPipes(deviceContext->HidInterface);
+        PVOID reportDescBuffer = WdfMemoryGetBuffer(DeviceContext->DsReportDescriptorHandle, NULL);
+        WDF_MEMORY_DESCRIPTOR_INIT_BUFFER(&memDesc, reportDescBuffer, reportDescLength);
+
+        status = WdfUsbTargetDeviceSendControlTransferSynchronously(
+                DeviceContext->UsbDevice,
+                WDF_NO_HANDLE,
+                NULL,
+                &controlSetupPacket,
+                &memDesc,
+                &bytesTransferred
+        );
+
+        if (!NT_SUCCESS(status)) {
+            print_kd("Control Transfer for Report Descriptor failed: 0x%08X\n", status);
+            return status;
+        }
+
+        print_kd("Successfully fetched Report Descriptor (%lu bytes transferred)\n", bytesTransferred);
+        return STATUS_SUCCESS;
+    }
+
+    // Helper PrepareHardware: Pipe & Continuous Reader Setup
+    NTSTATUS DualSenseInitInterruptPipe(_In_ PDEVICE_CONTEXT DeviceContext) {
+        UCHAR numPipes;
+        PAGED_CODE();
+        numPipes = WdfUsbInterfaceGetNumConfiguredPipes(DeviceContext->HidInterface);
 
         for (UCHAR i = 0; i < numPipes; i++) {
             WDF_USB_PIPE_INFORMATION pipeInfo;
             WDF_USB_PIPE_INFORMATION_INIT(&pipeInfo);
 
-            WDFUSBPIPE pipe = WdfUsbInterfaceGetConfiguredPipe(deviceContext->HidInterface, i, &pipeInfo);
+            WDFUSBPIPE pipe = WdfUsbInterfaceGetConfiguredPipe(DeviceContext->HidInterface, i, &pipeInfo);
 
-            // We want an Interrupt pipe, and it MUST be an IN endpoint (Device to Host)
             if (pipeInfo.PipeType == WdfUsbPipeTypeInterrupt && WdfUsbTargetPipeIsInEndpoint(pipe)) {
-                deviceContext->HidInterruptPipe = pipe;
-                print_kd("[DualSense] Found Interrupt IN pipe at index %d!\n", i);
+                DeviceContext->HidInterruptPipe = pipe;
+                print_kd("Interrupt IN Pipe configured at index %u\n", i);
                 break;
             }
         }
 
-        if (!deviceContext->HidInterruptPipe) {
-            print_kd("[DualSense] Failed to get Interrupt Pipe on DsHidUsbInterface.\n");
+        if (!DeviceContext->HidInterruptPipe) {
+            print_kd("Interrupt IN Pipe not found on HID Interface\n");
             return STATUS_INVALID_DEVICE_STATE;
         }
 
-        //
-        // Tell the framework that it's okay to read less than
-        // MaximumPacketSize
-        //
-        WdfUsbTargetPipeSetNoMaximumPacketSizeCheck(deviceContext->HidInterruptPipe);
+        WdfUsbTargetPipeSetNoMaximumPacketSizeCheck(DeviceContext->HidInterruptPipe);
 
-        //
-        //configure continuous reader
-        //
-        status = DualSenseConfigContReaderForInterruptEndPoint(deviceContext);
-
-        print_kd("[DualSense] DualSenseEvtDevicePrepareHardware Exit.\n");
-
-        return status;
+        return DualSenseConfigContReaderForInterruptEndPoint(DeviceContext);
     }
 }
