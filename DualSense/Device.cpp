@@ -521,9 +521,7 @@ DualSenseEvtDevicePrepareHardware(
 
     PAGED_CODE();
 
-    //TODO: print_kd()
-    //TraceEvents(TRACE_LEVEL_VERBOSE, DBG_INIT,
-    //    "HidFx2EvtDevicePrepareHardware Enter\n");
+    print_kd("HidFx2EvtDevicePrepareHardware Enter\n");
 
     deviceContext = GetDeviceContext(Device);
 
@@ -533,8 +531,7 @@ DualSenseEvtDevicePrepareHardware(
             &deviceContext->DsUsbDevice);
 
         if (!NT_SUCCESS(status)) {
-            /*TODO: TraceEvents(TRACE_LEVEL_ERROR, DBG_PNP,
-                "WdfUsbTargetDeviceCreate failed 0x%x\n", status);*/
+            print_kd("WdfUsbTargetDeviceCreate failed 0x%x\n", status);
             return status;
         }
 
@@ -544,7 +541,6 @@ DualSenseEvtDevicePrepareHardware(
         // HidFx2ValidateConfigurationDescriptor
         // to do basic validation on the descriptors before you access them.
         //
-
     }
 
     WDF_USB_DEVICE_SELECT_CONFIG_PARAMS_INIT_MULTIPLE_INTERFACES(&configParams, 0, NULL);
@@ -553,9 +549,7 @@ DualSenseEvtDevicePrepareHardware(
         WDF_NO_OBJECT_ATTRIBUTES,
         &configParams);
     if (!NT_SUCCESS(status)) {
-        /*TODO: TraceEvents(TRACE_LEVEL_ERROR, DBG_PNP,
-            "WdfUsbTargetDeviceSelectConfig failed %!STATUS!\n",
-            status);*/
+        print_kd("WdfUsbTargetDeviceSelectConfig failed %!STATUS!\n", status);
         return status;
     }
 
@@ -740,6 +734,3 @@ DualSenseEvtDevicePrepareHardware(
 
     return status;
 }
-
-
-
