@@ -216,10 +216,7 @@ Return Value:
 
     pnpPowerCallbacks.EvtDevicePrepareHardware = DualSenseEvtDevicePrepareHardware;
 
-    //
-    // These two callbacks start and stop the wdfusb pipe continuous reader
-    // as we go in and out of the D0-working state.
-    //
+    // These two callbacks start and stop the wdfusb pipe continuous reader as we go in and out of the D0-working state.
 
     pnpPowerCallbacks.EvtDeviceD0Entry = DualSenseEvtDeviceD0Entry;
     pnpPowerCallbacks.EvtDeviceD0Exit = DualSenseEvtDeviceD0Exit;
@@ -230,28 +227,31 @@ Return Value:
 
     deviceAttributes.EvtCleanupCallback = DualSenseEvtDeviceContextCleanup;
 
+    //WDF Device
     status = WdfDeviceCreate(&DeviceInit, &deviceAttributes, &device);
-
     if (!NT_SUCCESS(status)) {
         print_kd(("[DualSense] Error: WdfDeviceCreate failed 0x%x\n", status));
         return status;
     }
 
-    if (NT_SUCCESS(status)) {
-        deviceContext = GetDeviceContext(device);
+    //Device Interface
+    deviceContext = GetDeviceContext(device);
+    status = WdfDeviceCreateDeviceInterface(device, &GUID_DEVINTERFACE_DualSense, NULL);
+    if (!NT_SUCCESS(status)) {
+        print_kd(("[DualSense] Error: Failed to create device interface 0x%x\n", status));
+        return status;
+    }
 
-        status = WdfDeviceCreateDeviceInterface(
-            device,
-            &GUID_DEVINTERFACE_DualSense,
-            NULL
-            );
-
-        if (NT_SUCCESS(status)) {
-            status = DualSenseQueueInitialize(device);
-        }
+    //I/O Queue Initialize
+    status = DualSenseQueueInitialize(device);
+    if (!NT_SUCCESS(status)) {
+        print_kd(("[DualSense] Error: DualSenseQueueInitialize failed 0x%x\n", status));
+        return status;
     }
 
     return status;
+
+    //NOTE: deviceContext is not used, so it can be removed
 }
 
 VOID
