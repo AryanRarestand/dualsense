@@ -1,6 +1,5 @@
 #include "DeviceUSB.h"
 
-
 namespace DeviceUSB {
     // Define the descriptors here to avoid LNK2005 multiply defined symbols
     const unsigned char DualSenseUSBReportDescriptor[] = {
@@ -253,7 +252,6 @@ namespace DeviceUSB {
         return status;
     }
 
-
     #pragma alloc_text(PAGE, DualSenseInitUsbTarget)
     #pragma alloc_text(PAGE, DualSenseFindHidInterface)
     #include <ntddk.h>
@@ -343,10 +341,12 @@ namespace DeviceUSB {
         PAGED_CODE();
 
         *HidInterfaceNumber = 0;
+        DeviceContext->HidInterface = NULL;
         DeviceContext->UsbInterfaceCount = WdfUsbTargetDeviceGetNumInterfaces(DeviceContext->UsbDevice);
 
         if (DeviceContext->UsbInterfaces != NULL) {
             ExFreePoolWithTag(DeviceContext->UsbInterfaces, 'SIKT');
+            DeviceContext->UsbInterfaces = NULL;
         }
 
         DeviceContext->UsbInterfaces = (WDFUSBINTERFACE *) ExAllocatePool2(
@@ -361,6 +361,11 @@ namespace DeviceUSB {
         }
 
         print_kd("Total USB Interfaces detected: %hhu\n", DeviceContext->UsbInterfaceCount);
+
+        if (DeviceContext->DsDeviceDescriptorHandle != NULL) {
+            WdfObjectDelete(DeviceContext->DsDeviceDescriptorHandle);
+            DeviceContext->DsDeviceDescriptorHandle = NULL;
+        }
 
         //Getting Device Descriptor
         WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
@@ -442,7 +447,19 @@ namespace DeviceUSB {
         }
 
         USHORT reportDescLength = DeviceContext->DsHidDescriptor.DescriptorList[0].wReportLength;
+
+        if (reportDescLength == 0) {
+            print_kd("Invalid Report Descriptor length (0) reported by device\n");
+            return STATUS_DEVICE_DATA_ERROR;
+
+        }
+
         print_kd("HID Descriptor fetched successfully. Report Descriptor Length: %u bytes\n", reportDescLength);
+
+        if (DeviceContext->DsReportDescriptorHandle != NULL) {
+            WdfObjectDelete(DeviceContext->DsReportDescriptorHandle);
+            DeviceContext->DsReportDescriptorHandle = NULL;
+        }
 
         //Report Descriptor
         WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
@@ -488,6 +505,11 @@ namespace DeviceUSB {
             return status;
         }
 
+        if (bytesTransferred != reportDescLength) {
+            print_kd("Report Descriptor mismatch: Expected %u, Got %lu\n", reportDescLength, bytesTransferred);
+            return STATUS_DEVICE_DATA_ERROR;
+        }
+
         print_kd("Successfully fetched Report Descriptor (%lu bytes transferred)\n", bytesTransferred);
         return STATUS_SUCCESS;
     }
@@ -496,6 +518,8 @@ namespace DeviceUSB {
     NTSTATUS DualSenseInitInterruptPipe(_In_ PDEVICE_CONTEXT DeviceContext) {
         UCHAR numPipes;
         PAGED_CODE();
+
+        DeviceContext->HidInterruptPipe = NULL;
         numPipes = WdfUsbInterfaceGetNumConfiguredPipes(DeviceContext->HidInterface);
 
         for (UCHAR i = 0; i < numPipes; i++) {
