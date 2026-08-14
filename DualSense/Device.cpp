@@ -217,15 +217,14 @@ Return Value:
     pnpPowerCallbacks.EvtDevicePrepareHardware = DualSenseEvtDevicePrepareHardware;
 
     //
-// These two callbacks start and stop the wdfusb pipe continuous reader
-// as we go in and out of the D0-working state.
-//
+    // These two callbacks start and stop the wdfusb pipe continuous reader
+    // as we go in and out of the D0-working state.
+    //
+
     pnpPowerCallbacks.EvtDeviceD0Entry = DualSenseEvtDeviceD0Entry;
     pnpPowerCallbacks.EvtDeviceD0Exit = DualSenseEvtDeviceD0Exit;
-    
 
     WdfDeviceInitSetPnpPowerEventCallbacks(DeviceInit, &pnpPowerCallbacks);
-
 
     WDF_OBJECT_ATTRIBUTES_INIT_CONTEXT_TYPE(&deviceAttributes, DEVICE_CONTEXT);
 
@@ -234,7 +233,7 @@ Return Value:
     status = WdfDeviceCreate(&DeviceInit, &deviceAttributes, &device);
 
     if (!NT_SUCCESS(status)) {
-        KdPrint(("Error: WdfDeviceCreate failed 0x%x\n", status));
+        print_kd(("[DualSense] Error: WdfDeviceCreate failed 0x%x\n", status));
         return status;
     }
 
@@ -521,7 +520,7 @@ DualSenseEvtDevicePrepareHardware(
 
     PAGED_CODE();
 
-    print_kd("HidFx2EvtDevicePrepareHardware Enter\n");
+    print_kd("[DualSense] HidFx2EvtDevicePrepareHardware Enter\n");
 
     deviceContext = GetDeviceContext(Device);
 
@@ -531,7 +530,7 @@ DualSenseEvtDevicePrepareHardware(
             &deviceContext->DsUsbDevice);
 
         if (!NT_SUCCESS(status)) {
-            print_kd("WdfUsbTargetDeviceCreate failed 0x%x\n", status);
+            print_kd("[DualSense] WdfUsbTargetDeviceCreate failed 0x%x\n", status);
             return status;
         }
 
@@ -549,7 +548,7 @@ DualSenseEvtDevicePrepareHardware(
         WDF_NO_OBJECT_ATTRIBUTES,
         &configParams);
     if (!NT_SUCCESS(status)) {
-        print_kd("WdfUsbTargetDeviceSelectConfig failed %!STATUS!\n", status);
+        print_kd("[DualSense] WdfUsbTargetDeviceSelectConfig failed %!STATUS!\n", status);
         return status;
     }
 
