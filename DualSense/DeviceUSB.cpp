@@ -344,23 +344,42 @@ namespace DeviceUSB {
         DeviceContext->HidInterface = NULL;
         DeviceContext->UsbInterfaceCount = WdfUsbTargetDeviceGetNumInterfaces(DeviceContext->UsbDevice);
 
-        if (DeviceContext->UsbInterfaces != NULL) {
-            ExFreePoolWithTag(DeviceContext->UsbInterfaces, 'SIKT');
+        // 1. GUARD: Prevent STATUS_INVALID_PARAMETER if device reports 0 interfaces
+        if (DeviceContext->UsbInterfaceCount == 0) {
+            print_kd("[DualSense] Error: No USB Interfaces detected on the device.\n");
+            return STATUS_DEVICE_CONFIGURATION_ERROR;
+        }
+
+        if (DeviceContext->UsbInterfacesMemoryHandle != NULL) {
+            WdfObjectDelete(DeviceContext->UsbInterfacesMemoryHandle);
+            DeviceContext->UsbInterfacesMemoryHandle = NULL;
             DeviceContext->UsbInterfaces = NULL;
         }
 
-        DeviceContext->UsbInterfaces = (WDFUSBINTERFACE *) ExAllocatePool2(
-                POOL_FLAG_NON_PAGED,
-                DeviceContext->UsbInterfaceCount * sizeof(WDFUSBINTERFACE),
-                'SIKT'
+        WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
+        attributes.ParentObject = Device;
+
+        size_t allocationSize = DeviceContext->UsbInterfaceCount * sizeof(WDFUSBINTERFACE);
+
+        status = WdfMemoryCreate(
+                &attributes,
+                NonPagedPoolNx,
+                'SIKT',
+                allocationSize,
+                &DeviceContext->UsbInterfacesMemoryHandle,
+                (PVOID*)&DeviceContext->UsbInterfaces
         );
 
-        if (!DeviceContext->UsbInterfaces) {
-            print_kd("Memory allocation failed for UsbInterfaces array\n");
-            return STATUS_INSUFFICIENT_RESOURCES;
+        // 2. GUARD: Explicitly check if WDF successfully allocated the memory
+        if (!NT_SUCCESS(status)) {
+            print_kd("[DualSense] Memory allocation failed for UsbInterfaces array. Status: 0x%X\n", status);
+            return status;
         }
 
-        print_kd("Total USB Interfaces detected: %hhu\n", DeviceContext->UsbInterfaceCount);
+        // 3. GUARD: Match ExAllocatePool2 behavior by zeroing out the memory
+        RtlZeroMemory(DeviceContext->UsbInterfaces, allocationSize);
+
+        print_kd("[DualSense] Total USB Interfaces detected: %hhu\n", DeviceContext->UsbInterfaceCount);
 
         if (DeviceContext->DsDeviceDescriptorHandle != NULL) {
             WdfObjectDelete(DeviceContext->DsDeviceDescriptorHandle);
@@ -380,7 +399,7 @@ namespace DeviceUSB {
         );
 
         if (!NT_SUCCESS(status)) {
-            print_kd("WdfMemoryCreate failed for Device Descriptor: 0x%08X\n", status);
+            print_kd("[DualSense] WdfMemoryCreate failed for Device Descriptor: 0x%08X\n", status);
             return status;
         }
 

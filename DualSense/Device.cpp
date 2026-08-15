@@ -98,11 +98,15 @@ DualSenseEvtDeviceContextCleanup(
     _In_ WDFOBJECT DeviceObject
 )
 {
-    PDEVICE_CONTEXT deviceContext = GetDeviceContext(DeviceObject);
-    if (deviceContext->UsbInterfaces != NULL) {
-        ExFreePoolWithTag(deviceContext->UsbInterfaces, 'SIKT');
-        deviceContext->UsbInterfaces = NULL;
-    }
+
+    //NOTE: Because we switched from ExAllocatePool2 to WdfMemoryCreate, the underlying memory is now managed by the WDF
+    //we can delete this part I commented: -Ali PK
+
+    //PDEVICE_CONTEXT deviceContext = GetDeviceContext(DeviceObject);
+    //if (deviceContext->UsbInterfaces != NULL) {
+    //    ExFreePoolWithTag(deviceContext->UsbInterfaces, 'SIKT');
+    //    deviceContext->UsbInterfaces = NULL;
+    //}
 }
 
 
