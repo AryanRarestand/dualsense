@@ -29,7 +29,7 @@ namespace DeviceUSB{
 
     EVT_WDF_DEVICE_PREPARE_HARDWARE DualSenseEvtDevicePrepareHardware;
     NTSTATUS DualSenseInitUsbTarget(_In_ WDFDEVICE Device, _In_ PDEVICE_CONTEXT DeviceContext);
-    NTSTATUS DualSenseFindHidInterface(_In_ WDFDEVICE Device, _In_ PDEVICE_CONTEXT DeviceContext, _Out_ PUCHAR HidInterfaceNumber);
+    NTSTATUS DualSenseInitializeHidInterface(_In_ WDFDEVICE Device, _In_ PDEVICE_CONTEXT DeviceContext, _Out_ PUCHAR HidInterfaceNumber);
     NTSTATUS DualSenseFetchHidAndReportDescriptors(_In_ WDFDEVICE Device, _In_ PDEVICE_CONTEXT DeviceContext, _In_ UCHAR HidInterfaceNumber);
     NTSTATUS DualSenseInitInterruptPipe(_In_ PDEVICE_CONTEXT DeviceContext);
 }

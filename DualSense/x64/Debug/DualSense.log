@@ -1,0 +1,24 @@
+﻿  Building 'DualSense' with toolset 'WindowsKernelModeDriver10.0' and the 'Universal' target platform.
+  Stamping x64\Debug\DualSense.inf
+  Stamping [Version] section with DriverVer=08/16/2026,16.37.54.175
+C:\Users\aryan\Desktop\dualsense\DualSense\DualSense.inf(37-37): warning 2084: Service binary 'C:\WINDOWS\System32\Drivers\mshidkmdf.sys' should reference a CopyFiles destination file.
+  DeviceUSB.cpp
+  DualSense.vcxproj -> C:\Users\aryan\Desktop\dualsense\x64\Debug\DualSense.sys
+  Driver is 'Universal'.
+  .........................
+  Signability test complete.
+  
+  Errors:
+  None
+  
+  Warnings:
+  None
+  
+  Catalog generation complete.
+  C:\Users\aryan\Desktop\dualsense\x64\Debug\DualSense\dualsense.cat
+  Set catalog attribute.
+  WdkVersion: 10.0.26100.0
+  Set catalog attribute.
+  WdkAssemblyVersion: 10.0.26100.4202
+  'pwsh.exe' is not recognized as an internal or external command,
+  operable program or batch file.

@@ -1,4 +1,4 @@
-#include "DeviceUSB.h"
+#include "Driver.h"
 
 namespace DeviceUSB {
     // Define the descriptors here to avoid LNK2005 multiply defined symbols
@@ -145,6 +145,21 @@ namespace DeviceUSB {
                     }
             }
     };
+#pragma pack(push, 1)
+    typedef struct _DS_TOUCH_POINT {
+        UCHAR Contact;
+        UCHAR X_Lo;
+        UCHAR X_Hi_Y_Lo;
+        UCHAR Y_Hi;
+    } DS_TOUCH_POINT, * PDS_TOUCH_POINT;
+    typedef struct _VIRTUAL_MOUSE_REPORT {
+        UCHAR ReportId;
+        UCHAR Buttons;
+        CHAR  DeltaX;  // Changed to 8-bit CHAR
+        CHAR  DeltaY;  // Changed to 8-bit CHAR
+    } VIRTUAL_MOUSE_REPORT, * PVIRTUAL_MOUSE_REPORT;
+#pragma pack(pop)
+
 
     VOID DualSenseEvtUsbInterruptPipeReadComplete(
             WDFUSBPIPE Pipe,
@@ -252,15 +267,12 @@ namespace DeviceUSB {
         return status;
     }
 
-    #pragma alloc_text(PAGE, DualSenseInitUsbTarget)
-    #pragma alloc_text(PAGE, DualSenseFindHidInterface)
-    #include <ntddk.h>
-    #include <wdf.h>
-
     NTSTATUS DualSenseEvtDevicePrepareHardware(
             _In_ WDFDEVICE Device,
             _In_ WDFCMRESLIST ResourcesRaw,
-            _In_ WDFCMRESLIST ResourcesTranslated) {
+            _In_ WDFCMRESLIST ResourcesTranslated
+    ) {
+
         UNREFERENCED_PARAMETER(ResourcesRaw);
         UNREFERENCED_PARAMETER(ResourcesTranslated);
 
@@ -270,39 +282,35 @@ namespace DeviceUSB {
 
         PAGED_CODE();
 
-        print_kd("Entering PrepareHardware\n");
+        print_kd("[DualSense] Entering PrepareHardware\n");
 
         deviceContext = GetDeviceContext(Device);
 
-        // ۱. ساخت و پیکربندی USB Target
         status = DualSenseInitUsbTarget(Device, deviceContext);
         if (!NT_SUCCESS(status)) {
-            print_kd("Failed to initialize USB Target Device. Status: 0x%08X\n", status);
+            print_kd("[DualSense] Failed to initialize USB Target Device. Status: 0x%08X\n", status);
             return status;
         }
-
-        // ۲. یافتن Interface مربوط به HID و دریافت Device Descriptor
-        status = DualSenseFindHidInterface(Device, deviceContext, &hidInterfaceNumber);
+        
+        status = DualSenseInitializeHidInterface(Device, deviceContext, &hidInterfaceNumber);
         if (!NT_SUCCESS(status)) {
-            print_kd("Failed to find HID Interface. Status: 0x%08X\n", status);
+            print_kd("[DualSense] Failed to find HID Interface. Status: 0x%08X\n", status);
             return status;
         }
 
-        // ۳. دریافت HID Descriptor و Report Descriptor
         status = DualSenseFetchHidAndReportDescriptors(Device, deviceContext, hidInterfaceNumber);
         if (!NT_SUCCESS(status)) {
-            print_kd("Failed to fetch HID/Report Descriptors. Status: 0x%08X\n", status);
+            print_kd("[DualSense] Failed to fetch HID/Report Descriptors. Status: 0x%08X\n", status);
             return status;
         }
 
-        // ۴. کانفیگ Interrupt Pipe و Continuous Reader
         status = DualSenseInitInterruptPipe(deviceContext);
         if (!NT_SUCCESS(status)) {
-            print_kd("Failed to setup Interrupt Pipe. Status: 0x%08X\n", status);
+            print_kd("[DualSense] Failed to setup Interrupt Pipe. Status: 0x%08X\n", status);
             return status;
         }
 
-        print_kd("PrepareHardware completed successfully\n");
+        print_kd("[DualSense] PrepareHardware completed successfully\n");
         return STATUS_SUCCESS;
     }
 
@@ -316,7 +324,7 @@ namespace DeviceUSB {
         if (DeviceContext->UsbDevice == NULL) {
             status = WdfUsbTargetDeviceCreate(Device, WDF_NO_OBJECT_ATTRIBUTES, &DeviceContext->UsbDevice);
             if (!NT_SUCCESS(status)) {
-                print_kd("WdfUsbTargetDeviceCreate failed: 0x%08X\n", status);
+                print_kd("[DualSense] WdfUsbTargetDeviceCreate failed: 0x%08X\n", status);
                 return status;
             }
         }
@@ -331,7 +339,7 @@ namespace DeviceUSB {
     }
 
     // Helper PrepareHardware: Find HID Interface & Retrieve Device Descriptor
-    NTSTATUS DualSenseFindHidInterface(_In_ WDFDEVICE Device, _In_ PDEVICE_CONTEXT DeviceContext, _Out_ PUCHAR
+    NTSTATUS DualSenseInitializeHidInterface(_In_ WDFDEVICE Device, _In_ PDEVICE_CONTEXT DeviceContext, _Out_ PUCHAR
                                        HidInterfaceNumber) {
         NTSTATUS status = STATUS_SUCCESS;
         WDF_OBJECT_ATTRIBUTES attributes;
@@ -412,12 +420,12 @@ namespace DeviceUSB {
 
             WdfUsbInterfaceGetDescriptor(DeviceContext->UsbInterfaces[i], 0, &interfaceDescriptor);
 
-            print_kd("Interface %u -> Class: 0x%02X, SubClass: 0x%02X\n",
+            print_kd("[DualSense] Interface %u -> Class: 0x%02X, SubClass: 0x%02X\n",
                      i, interfaceDescriptor.bInterfaceClass, interfaceDescriptor.bInterfaceSubClass);
 
             // Class 0x03 = Human Interface Device (HID)
             if (interfaceDescriptor.bInterfaceClass == 0x03) {
-                print_kd("HID Interface identified at index %u (Interface Number %u)\n", i,
+                print_kd("[DualSense] HID Interface identified at index %u (Interface Number %u)\n", i,
                          interfaceDescriptor.bInterfaceNumber);
                 DeviceContext->HidInterface = DeviceContext->UsbInterfaces[i];
                 *HidInterfaceNumber = interfaceDescriptor.bInterfaceNumber;
@@ -461,19 +469,19 @@ namespace DeviceUSB {
         );
 
         if (!NT_SUCCESS(status)) {
-            print_kd("Control Transfer for HID Descriptor failed: 0x%08X\n", status);
+            print_kd("[DualSense] Control Transfer for HID Descriptor failed: 0x%08X\n", status);
             return status;
         }
 
         USHORT reportDescLength = DeviceContext->DsHidDescriptor.DescriptorList[0].wReportLength;
 
         if (reportDescLength == 0) {
-            print_kd("Invalid Report Descriptor length (0) reported by device\n");
+            print_kd("[DualSense] Invalid Report Descriptor length (0) reported by device\n");
             return STATUS_DEVICE_DATA_ERROR;
 
         }
 
-        print_kd("HID Descriptor fetched successfully. Report Descriptor Length: %u bytes\n", reportDescLength);
+        print_kd("[DualSense] HID Descriptor fetched successfully. Report Descriptor Length: %u bytes\n", reportDescLength);
 
         if (DeviceContext->DsReportDescriptorHandle != NULL) {
             WdfObjectDelete(DeviceContext->DsReportDescriptorHandle);
@@ -493,7 +501,7 @@ namespace DeviceUSB {
         );
 
         if (!NT_SUCCESS(status)) {
-            print_kd("Allocation failed for Report Descriptor memory: 0x%08X\n", status);
+            print_kd("[DualSense] Allocation failed for Report Descriptor memory: 0x%08X\n", status);
             return status;
         }
 
@@ -520,16 +528,16 @@ namespace DeviceUSB {
         );
 
         if (!NT_SUCCESS(status)) {
-            print_kd("Control Transfer for Report Descriptor failed: 0x%08X\n", status);
+            print_kd("[DualSense] Control Transfer for Report Descriptor failed: 0x%08X\n", status);
             return status;
         }
 
         if (bytesTransferred != reportDescLength) {
-            print_kd("Report Descriptor mismatch: Expected %u, Got %lu\n", reportDescLength, bytesTransferred);
+            print_kd("[DualSense] Report Descriptor mismatch: Expected %u, Got %lu\n", reportDescLength, bytesTransferred);
             return STATUS_DEVICE_DATA_ERROR;
         }
 
-        print_kd("Successfully fetched Report Descriptor (%lu bytes transferred)\n", bytesTransferred);
+        print_kd("[DualSense] Successfully fetched Report Descriptor (%lu bytes transferred)\n", bytesTransferred);
         return STATUS_SUCCESS;
     }
 
@@ -549,13 +557,13 @@ namespace DeviceUSB {
 
             if (pipeInfo.PipeType == WdfUsbPipeTypeInterrupt && WdfUsbTargetPipeIsInEndpoint(pipe)) {
                 DeviceContext->HidInterruptPipe = pipe;
-                print_kd("Interrupt IN Pipe configured at index %u\n", i);
+                print_kd("[DualSense] Interrupt IN Pipe configured at index %u\n", i);
                 break;
             }
         }
 
         if (!DeviceContext->HidInterruptPipe) {
-            print_kd("Interrupt IN Pipe not found on HID Interface\n");
+            print_kd("[DualSense] Interrupt IN Pipe not found on HID Interface\n");
             return STATUS_INVALID_DEVICE_STATE;
         }
 

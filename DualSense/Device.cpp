@@ -16,20 +16,6 @@ Environment:
 
 #include "driver.h"
 
-#pragma pack(push, 1)
-typedef struct _DS_TOUCH_POINT {
-    UCHAR Contact;
-    UCHAR X_Lo;
-    UCHAR X_Hi_Y_Lo;
-    UCHAR Y_Hi;
-} DS_TOUCH_POINT, * PDS_TOUCH_POINT;
-typedef struct _VIRTUAL_MOUSE_REPORT {
-    UCHAR ReportId;
-    UCHAR Buttons;
-    CHAR  DeltaX;  // Changed to 8-bit CHAR
-    CHAR  DeltaY;  // Changed to 8-bit CHAR
-} VIRTUAL_MOUSE_REPORT, * PVIRTUAL_MOUSE_REPORT;
-#pragma pack(pop)
 
 
 #ifdef ALLOC_PRAGMA
@@ -43,7 +29,6 @@ DualSenseCreateDevice(
 {
     WDF_OBJECT_ATTRIBUTES deviceAttributes;
     WDF_PNPPOWER_EVENT_CALLBACKS  pnpPowerCallbacks;
-    PDEVICE_CONTEXT deviceContext;
     WDFDEVICE device;
     NTSTATUS status;
 
@@ -66,31 +51,28 @@ DualSenseCreateDevice(
 
     deviceAttributes.EvtCleanupCallback = DualSenseEvtDeviceContextCleanup;
 
-    //WDF Device
+    // WDF Device
     status = WdfDeviceCreate(&DeviceInit, &deviceAttributes, &device);
     if (!NT_SUCCESS(status)) {
-        print_kd(("[DualSense] Error: WdfDeviceCreate failed 0x%x\n", status));
+        print_kd("[DualSense] Error: WdfDeviceCreate failed 0x%x\n", status);
         return status;
     }
 
-    //Device Interface
-    deviceContext = GetDeviceContext(device);
+    // Device Interface
     status = WdfDeviceCreateDeviceInterface(device, &GUID_DEVINTERFACE_DualSense, NULL);
     if (!NT_SUCCESS(status)) {
-        print_kd(("[DualSense] Error: Failed to create device interface 0x%x\n", status));
+        print_kd("[DualSense] Error: Failed to create device interface 0x%x\n", status);
         return status;
     }
 
-    //I/O Queue Initialize
+    // I/O Queue Initialize
     status = DualSenseQueueInitialize(device);
     if (!NT_SUCCESS(status)) {
-        print_kd(("[DualSense] Error: DualSenseQueueInitialize failed 0x%x\n", status));
+        print_kd("[DualSense] Error: DualSenseQueueInitialize failed 0x%x\n", status);
         return status;
     }
 
     return status;
-
-    //NOTE: deviceContext is not used, so it can be removed
 }
 
 VOID
@@ -98,15 +80,9 @@ DualSenseEvtDeviceContextCleanup(
     _In_ WDFOBJECT DeviceObject
 )
 {
+    UNREFERENCED_PARAMETER(DeviceObject);
 
-    //NOTE: Because we switched from ExAllocatePool2 to WdfMemoryCreate, the underlying memory is now managed by the WDF
-    //we can delete this part I commented: -Ali PK
-
-    //PDEVICE_CONTEXT deviceContext = GetDeviceContext(DeviceObject);
-    //if (deviceContext->UsbInterfaces != NULL) {
-    //    ExFreePoolWithTag(deviceContext->UsbInterfaces, 'SIKT');
-    //    deviceContext->UsbInterfaces = NULL;
-    //}
+    print_kd("[DualSense] DualSenseEvtDeviceContextCleanup\n");
 }
 
 

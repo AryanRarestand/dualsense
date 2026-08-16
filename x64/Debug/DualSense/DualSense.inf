@@ -8,7 +8,7 @@ Class       = HIDClass
 ClassGuid   = {745a17a0-74d3-11d0-b6fe-00a0c90f57da}
 Provider    = %ManufacturerName%
 CatalogFile = DualSense.cat
-DriverVer = 08/12/2026,19.18.54.184
+DriverVer = 08/16/2026,16.37.54.175
 PnpLockdown = 1
 
 [DestinationDirs]

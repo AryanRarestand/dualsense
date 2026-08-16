@@ -30,6 +30,7 @@ Environment:
 #include "device.h"
 #include "queue.h"
 #include "trace.h"
+#include "DeviceUSB.h"
 
 #define INTERRUPT_ENDPOINT_INDEX     (0)
 #define SWICTHPACK_DEBOUNCE_TIME_IN_MS   10

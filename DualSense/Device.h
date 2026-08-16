@@ -26,7 +26,7 @@ typedef struct _DEVICE_CONTEXT
     // USB / HID
     //
     WDFUSBDEVICE       UsbDevice;
-    WDFUSBINTERFACE*   UsbInterfaces;
+    WDFUSBINTERFACE*   UsbInterfaces; // DELETE
     WDFMEMORY          UsbInterfacesMemoryHandle;
     WDFUSBINTERFACE    HidInterface;
     UCHAR              UsbInterfaceCount;
