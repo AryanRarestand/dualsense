@@ -26,7 +26,6 @@ typedef struct _DEVICE_CONTEXT
     // USB / HID
     //
     WDFUSBDEVICE       UsbDevice;
-    WDFUSBINTERFACE*   UsbInterfaces; // DELETE
     WDFMEMORY          UsbInterfacesMemoryHandle;
     WDFUSBINTERFACE    HidInterface;
     UCHAR              UsbInterfaceCount;
@@ -34,7 +33,6 @@ typedef struct _DEVICE_CONTEXT
 
     HID_DESCRIPTOR     DsHidDescriptor;
     WDFMEMORY          DsReportDescriptorHandle;
-    WDFMEMORY          DsDeviceDescriptorHandle;
 
     //
     // Touchpad
@@ -58,6 +56,9 @@ typedef struct _DEVICE_CONTEXT
     //
     WDFQUEUE             InterruptMsgQueue;
     WDFTIMER             DebounceTimer;
+
+
+    USHORT currentScanTime;
 
 } DEVICE_CONTEXT, *PDEVICE_CONTEXT;
 

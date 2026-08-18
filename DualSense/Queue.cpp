@@ -98,14 +98,13 @@ DualSenseEvtIoInternalDeviceControl(
         RtlZeroMemory(&deviceAttributes, sizeof(HID_DEVICE_ATTRIBUTES));
         deviceAttributes.Size = sizeof(HID_DEVICE_ATTRIBUTES);
 
-        // Get the raw pointer to the USB Device Descriptor we fetched in PrepareHardware
-        PUSB_DEVICE_DESCRIPTOR usbDeviceDesc =
-            (PUSB_DEVICE_DESCRIPTOR)WdfMemoryGetBuffer(deviceContext->DsDeviceDescriptorHandle, NULL);
+        USB_DEVICE_DESCRIPTOR usbDeviceDesc;
+        WdfUsbTargetDeviceGetDeviceDescriptor(deviceContext->UsbDevice, &usbDeviceDesc);
 
         // Copy the Sony Vendor ID and DualSense Product ID over
-        deviceAttributes.VendorID = usbDeviceDesc->idVendor;
-        deviceAttributes.ProductID = usbDeviceDesc->idProduct;
-        deviceAttributes.VersionNumber = usbDeviceDesc->bcdDevice;
+        deviceAttributes.VendorID = usbDeviceDesc.idVendor;
+        deviceAttributes.ProductID = usbDeviceDesc.idProduct;
+        deviceAttributes.VersionNumber = usbDeviceDesc.bcdDevice;
         status = RequestCopyFromBuffer(Request, &deviceAttributes, sizeof(HID_DEVICE_ATTRIBUTES));
         break;
     }
@@ -137,10 +136,46 @@ DualSenseEvtIoInternalDeviceControl(
         //status = WriteReport(queueContext, Request);
         break;
 
-    case IOCTL_HID_GET_FEATURE:             // METHOD_OUT_DIRECT TODO:
-
-        //status = GetFeature(queueContext, Request);
+    case IOCTL_HID_GET_FEATURE:             // METHOD_OUT_DIRECT
+    {
+        WDFMEMORY memory;
+        size_t outputBufferLength;
+        PUCHAR outputBuffer;
+        
+        status = WdfRequestRetrieveOutputMemory(Request, &memory);
+        if (NT_SUCCESS(status)) {
+            outputBuffer = (PUCHAR)WdfMemoryGetBuffer(memory, &outputBufferLength);
+            if (outputBufferLength >= 1) {
+                UCHAR reportId = outputBuffer[0];
+                
+                if (reportId == 0x42 && outputBufferLength >= 3) {
+                    // PTP Configuration Feature Report
+                    outputBuffer[0] = 0x42; // Report ID
+                    outputBuffer[1] = 0x02; // Maximum Contacts (2)
+                    outputBuffer[2] = 0x00; // Pad Type (0 = Touchpad)
+                    WdfRequestSetInformation(Request, 3);
+                    status = STATUS_SUCCESS;
+                } else if (reportId == 0x43 && outputBufferLength >= 256) {
+                    // PTP Certification Status Feature Report
+                    RtlZeroMemory(outputBuffer, outputBufferLength);
+                    outputBuffer[0] = 0x43; // Report ID
+                    
+                    // Windows requires a 256-byte blob for PTPHQA. 
+                    // Any valid 256 byte response allows basic PTP features.
+                    outputBuffer[1] = 0xFC;
+                    outputBuffer[2] = 0x28;
+                    
+                    WdfRequestSetInformation(Request, 256);
+                    status = STATUS_SUCCESS;
+                } else {
+                    status = STATUS_NOT_SUPPORTED;
+                }
+            } else {
+                status = STATUS_INVALID_BUFFER_SIZE;
+            }
+        }
         break;
+    }
 
     case IOCTL_HID_SET_FEATURE:             // METHOD_IN_DIRECT TODO:
 
