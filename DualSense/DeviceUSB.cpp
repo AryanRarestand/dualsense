@@ -287,6 +287,21 @@ namespace DeviceUSB {
         }
     }
 
+    //HelperFunction: DualSenseProcessPtpReport
+    // Small inline helper to unpack the DualSense 12-bit coordinate format
+    FORCEINLINE VOID DualSenseUnpackTouchData(
+            _In_ PDS_TOUCH_POINT Point,
+            _Out_ PBOOLEAN IsActive,
+            _Out_ PSHORT X,
+            _Out_ PSHORT Y,
+            _Out_ PUCHAR ContactId
+    ) {
+        *IsActive = (Point->Contact & 0x80) == 0;
+        *ContactId = Point->Contact & 0x7F;
+        *X = ((Point->X_Hi_Y_Lo & 0x0F) << 8) | Point->X_Lo;
+        *Y = (Point->Y_Hi << 4) | ((Point->X_Hi_Y_Lo & 0xF0) >> 4);
+    }
+
     //HelperFunction: DualSenseEvtUsbInterruptPipeReadComplete
     VOID DualSenseProcessPtpReport(
             _In_ PDEVICE_CONTEXT DeviceContext,
@@ -307,13 +322,12 @@ namespace DeviceUSB {
             ptpReport.ReportId = 0x41; // MATCHES NEW DESCRIPTOR
             PDS_TOUCH_POINT points = (PDS_TOUCH_POINT)(UsbData + DS_TOUCH_DATA_OFFSET);
 
-            BOOLEAN f1Active = (points[0].Contact & DS_TOUCH_INACTIVE_MASK) == 0;
-            SHORT f1X = ((points[0].X_Hi_Y_Lo & 0x0F) << 8) | points[0].X_Lo;
-            SHORT f1Y = (points[0].Y_Hi << 4) | ((points[0].X_Hi_Y_Lo & 0xF0) >> 4);
+            BOOLEAN f1Active, f2Active;
+            SHORT f1X, f1Y, f2X, f2Y;
+            UCHAR f1Id, f2Id;
 
-            BOOLEAN f2Active = (points[1].Contact & DS_TOUCH_INACTIVE_MASK) == 0;
-            SHORT f2X = ((points[1].X_Hi_Y_Lo & 0x0F) << 8) | points[1].X_Lo;
-            SHORT f2Y = (points[1].Y_Hi << 4) | ((points[1].X_Hi_Y_Lo & 0xF0) >> 4);
+            DualSenseUnpackTouchData(&points[0], &f1Active, &f1X, &f1Y, &f1Id);
+            DualSenseUnpackTouchData(&points[1], &f2Active, &f2X, &f2Y, &f2Id);
 
             UCHAR contactCount = 0;
 
