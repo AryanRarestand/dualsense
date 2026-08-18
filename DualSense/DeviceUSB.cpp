@@ -256,83 +256,106 @@ namespace DeviceUSB {
             size_t NumBytesTransferred,
             WDFCONTEXT Context
     ) {
-        PDEVICE_CONTEXT deviceContext = (PDEVICE_CONTEXT) Context;
-        NTSTATUS status;
-        WDFREQUEST request;
         UNREFERENCED_PARAMETER(Pipe);
 
         if (NumBytesTransferred == 0)
             return;
 
+        PDEVICE_CONTEXT deviceContext = (PDEVICE_CONTEXT) Context;
         PUCHAR usbData = (PUCHAR) WdfMemoryGetBuffer(Buffer, NULL);
-        // =======================================================
+
         // 1. POP REQUEST 1: Send the raw Gamepad Report (0x01)
-        // =======================================================
-        status = WdfIoQueueRetrieveNextRequest(deviceContext->InterruptMsgQueue, &request);
+        DualSenseProcessGamepadReport(deviceContext, usbData, NumBytesTransferred);
+
+        // 2. POP REQUEST 2: Parse touchpad and send PTP Report (0x41)
+        DualSenseProcessPtpReport(deviceContext, usbData, NumBytesTransferred);
+    }
+
+    //HelperFunction: DualSenseEvtUsbInterruptPipeReadComplete
+    VOID DualSenseProcessGamepadReport(
+            _In_ PDEVICE_CONTEXT DeviceContext,
+            _In_ PUCHAR UsbData,
+            _In_ size_t NumBytesTransferred
+    ) {
+        NTSTATUS status;
+        WDFREQUEST request;
+
+        status = WdfIoQueueRetrieveNextRequest(DeviceContext->InterruptMsgQueue, &request);
         if (NT_SUCCESS(status)) {
-            status = RequestCopyFromBuffer(request, usbData, NumBytesTransferred);
+            status = RequestCopyFromBuffer(request, UsbData, NumBytesTransferred);
             WdfRequestComplete(request, status);
         }
-        // =======================================================
-        // 2. POP REQUEST 2: Parse touchpad and send PTP Report (0x41)
-        // =======================================================
-        if (NumBytesTransferred >= 41) { // Safety check to ensure touchpad bytes exist
-            status = WdfIoQueueRetrieveNextRequest(deviceContext->InterruptMsgQueue, &request);
-            if (NT_SUCCESS(status)) {
-                PTP_REPORT ptpReport = {0};
-                ptpReport.ReportId = 0x41; // MATCHES NEW DESCRIPTOR
-                PDS_TOUCH_POINT points = (PDS_TOUCH_POINT)(usbData + 33);
-                
-                BOOLEAN f1Active = (points[0].Contact & 0x80) == 0;
-                SHORT f1X = ((points[0].X_Hi_Y_Lo & 0x0F) << 8) | points[0].X_Lo;
-                SHORT f1Y = (points[0].Y_Hi << 4) | ((points[0].X_Hi_Y_Lo & 0xF0) >> 4);
-                
-                BOOLEAN f2Active = (points[1].Contact & 0x80) == 0;
-                SHORT f2X = ((points[1].X_Hi_Y_Lo & 0x0F) << 8) | points[1].X_Lo;
-                SHORT f2Y = (points[1].Y_Hi << 4) | ((points[1].X_Hi_Y_Lo & 0xF0) >> 4);
-                
-                UCHAR contactCount = 0;
-                
-                if (f1Active) {
-                    ptpReport.Contacts[0].TipSwitch = 1;
-                    ptpReport.Contacts[0].Confidence = 1;
-                    ptpReport.Contacts[0].ContactID = points[0].Contact & 0x7F; // Use raw contact ID from DualSense
-                    ptpReport.Contacts[0].X = f1X;
-                    ptpReport.Contacts[0].Y = f1Y;
-                    contactCount++;
-                }
-                
-                if (f2Active) {
-                    ptpReport.Contacts[1].TipSwitch = 1;
-                    ptpReport.Contacts[1].Confidence = 1;
-                    ptpReport.Contacts[1].ContactID = points[1].Contact & 0x7F; // Use raw contact ID from DualSense
-                    ptpReport.Contacts[1].X = f2X;
-                    ptpReport.Contacts[1].Y = f2Y;
-                    contactCount++;
-                }
-                
-                ptpReport.ContactCount = contactCount;
-                
-                // Track time
-                static USHORT currentScanTime = 0;
-                currentScanTime += 100; // Increment roughly every 10ms report (100 * 100us)
-                ptpReport.ScanTime = currentScanTime;
+    }
 
-                BOOLEAN isPadClicked = (usbData[10] & 0x02) != 0;
-                if (isPadClicked) {
-                    ptpReport.Button = 1; // 1 bit for left click (PTP only requires single click state)
-                }
+    //HelperFunction: DualSenseEvtUsbInterruptPipeReadComplete
+    VOID DualSenseProcessPtpReport(
+            _In_ PDEVICE_CONTEXT DeviceContext,
+            _In_ PUCHAR UsbData,
+            _In_ size_t NumBytesTransferred
+    ) {
+        // Safety check to ensure touchpad bytes exist
+        if (NumBytesTransferred < 41) {
+            return;
+        }
 
-                deviceContext->Finger1Active = f1Active;
-                deviceContext->Finger1PrevX = f1X;
-                deviceContext->Finger1PrevY = f1Y;
-                deviceContext->Finger2Active = f2Active;
-                deviceContext->Finger2PrevX = f2X;
-                deviceContext->Finger2PrevY = f2Y;
-                
-                status = RequestCopyFromBuffer(request, &ptpReport, sizeof(ptpReport));
-                WdfRequestComplete(request, status);
+        NTSTATUS status;
+        WDFREQUEST request;
+
+        status = WdfIoQueueRetrieveNextRequest(DeviceContext->InterruptMsgQueue, &request);
+        if (NT_SUCCESS(status)) {
+            PTP_REPORT ptpReport = {0};
+            ptpReport.ReportId = 0x41; // MATCHES NEW DESCRIPTOR
+            PDS_TOUCH_POINT points = (PDS_TOUCH_POINT)(UsbData + 33);
+
+            BOOLEAN f1Active = (points[0].Contact & 0x80) == 0;
+            SHORT f1X = ((points[0].X_Hi_Y_Lo & 0x0F) << 8) | points[0].X_Lo;
+            SHORT f1Y = (points[0].Y_Hi << 4) | ((points[0].X_Hi_Y_Lo & 0xF0) >> 4);
+
+            BOOLEAN f2Active = (points[1].Contact & 0x80) == 0;
+            SHORT f2X = ((points[1].X_Hi_Y_Lo & 0x0F) << 8) | points[1].X_Lo;
+            SHORT f2Y = (points[1].Y_Hi << 4) | ((points[1].X_Hi_Y_Lo & 0xF0) >> 4);
+
+            UCHAR contactCount = 0;
+
+            if (f1Active) {
+                ptpReport.Contacts[0].TipSwitch = 1;
+                ptpReport.Contacts[0].Confidence = 1;
+                ptpReport.Contacts[0].ContactID = points[0].Contact & 0x7F; // Use raw contact ID from DualSense
+                ptpReport.Contacts[0].X = f1X;
+                ptpReport.Contacts[0].Y = f1Y;
+                contactCount++;
             }
+
+            if (f2Active) {
+                ptpReport.Contacts[1].TipSwitch = 1;
+                ptpReport.Contacts[1].Confidence = 1;
+                ptpReport.Contacts[1].ContactID = points[1].Contact & 0x7F; // Use raw contact ID from DualSense
+                ptpReport.Contacts[1].X = f2X;
+                ptpReport.Contacts[1].Y = f2Y;
+                contactCount++;
+            }
+
+            ptpReport.ContactCount = contactCount;
+
+            // Track time
+            static USHORT currentScanTime = 0;
+            currentScanTime += 100; // Increment roughly every 10ms report (100 * 100us)
+            ptpReport.ScanTime = currentScanTime;
+
+            BOOLEAN isPadClicked = (UsbData[10] & 0x02) != 0;
+            if (isPadClicked) {
+                ptpReport.Button = 1; // 1 bit for left click (PTP only requires single click state)
+            }
+
+            DeviceContext->Finger1Active = f1Active;
+            DeviceContext->Finger1PrevX = f1X;
+            DeviceContext->Finger1PrevY = f1Y;
+            DeviceContext->Finger2Active = f2Active;
+            DeviceContext->Finger2PrevX = f2X;
+            DeviceContext->Finger2PrevY = f2Y;
+
+            status = RequestCopyFromBuffer(request, &ptpReport, sizeof(ptpReport));
+            WdfRequestComplete(request, status);
         }
     }
 
