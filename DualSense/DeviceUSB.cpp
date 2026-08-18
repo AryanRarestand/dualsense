@@ -294,7 +294,7 @@ namespace DeviceUSB {
             _In_ size_t NumBytesTransferred
     ) {
         // Safety check to ensure touchpad bytes exist
-        if (NumBytesTransferred < 41) {
+        if (NumBytesTransferred < DS_REPORT_PTP_MIN_SIZE) {
             return;
         }
 
@@ -305,13 +305,13 @@ namespace DeviceUSB {
         if (NT_SUCCESS(status)) {
             PTP_REPORT ptpReport = {0};
             ptpReport.ReportId = 0x41; // MATCHES NEW DESCRIPTOR
-            PDS_TOUCH_POINT points = (PDS_TOUCH_POINT)(UsbData + 33);
+            PDS_TOUCH_POINT points = (PDS_TOUCH_POINT)(UsbData + DS_TOUCH_DATA_OFFSET);
 
-            BOOLEAN f1Active = (points[0].Contact & 0x80) == 0;
+            BOOLEAN f1Active = (points[0].Contact & DS_TOUCH_INACTIVE_MASK) == 0;
             SHORT f1X = ((points[0].X_Hi_Y_Lo & 0x0F) << 8) | points[0].X_Lo;
             SHORT f1Y = (points[0].Y_Hi << 4) | ((points[0].X_Hi_Y_Lo & 0xF0) >> 4);
 
-            BOOLEAN f2Active = (points[1].Contact & 0x80) == 0;
+            BOOLEAN f2Active = (points[1].Contact & DS_TOUCH_INACTIVE_MASK) == 0;
             SHORT f2X = ((points[1].X_Hi_Y_Lo & 0x0F) << 8) | points[1].X_Lo;
             SHORT f2Y = (points[1].Y_Hi << 4) | ((points[1].X_Hi_Y_Lo & 0xF0) >> 4);
 
@@ -320,7 +320,7 @@ namespace DeviceUSB {
             if (f1Active) {
                 ptpReport.Contacts[0].TipSwitch = 1;
                 ptpReport.Contacts[0].Confidence = 1;
-                ptpReport.Contacts[0].ContactID = points[0].Contact & 0x7F; // Use raw contact ID from DualSense
+                ptpReport.Contacts[0].ContactID = points[0].Contact & DS_TOUCH_CONTACT_ID_MASK; // Use raw contact ID from DualSense
                 ptpReport.Contacts[0].X = f1X;
                 ptpReport.Contacts[0].Y = f1Y;
                 contactCount++;
@@ -329,7 +329,7 @@ namespace DeviceUSB {
             if (f2Active) {
                 ptpReport.Contacts[1].TipSwitch = 1;
                 ptpReport.Contacts[1].Confidence = 1;
-                ptpReport.Contacts[1].ContactID = points[1].Contact & 0x7F; // Use raw contact ID from DualSense
+                ptpReport.Contacts[1].ContactID = points[1].Contact & DS_TOUCH_CONTACT_ID_MASK; // Use raw contact ID from DualSense
                 ptpReport.Contacts[1].X = f2X;
                 ptpReport.Contacts[1].Y = f2Y;
                 contactCount++;
@@ -338,11 +338,10 @@ namespace DeviceUSB {
             ptpReport.ContactCount = contactCount;
 
             // Track time
-            static USHORT currentScanTime = 0;
-            currentScanTime += 100; // Increment roughly every 10ms report (100 * 100us)
-            ptpReport.ScanTime = currentScanTime;
+            DeviceContext->currentScanTime += 100; // Increment roughly every 10ms report (100 * 100us)
+            ptpReport.ScanTime = DeviceContext->currentScanTime;
 
-            BOOLEAN isPadClicked = (UsbData[10] & 0x02) != 0;
+            BOOLEAN isPadClicked = (UsbData[DS_BUTTON_DATA_OFFSET] & DS_BUTTON_PAD_CLICK_MASK) != 0;
             if (isPadClicked) {
                 ptpReport.Button = 1; // 1 bit for left click (PTP only requires single click state)
             }

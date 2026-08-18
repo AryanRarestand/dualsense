@@ -1,7 +1,13 @@
 #ifndef DUALSENSE_DEVICEUSB_H
 #define DUALSENSE_DEVICEUSB_H
 
+#define DS_REPORT_PTP_MIN_SIZE    41
+#define DS_TOUCH_DATA_OFFSET      33
+#define DS_BUTTON_DATA_OFFSET     10
 
+#define DS_TOUCH_INACTIVE_MASK    0x80
+#define DS_TOUCH_CONTACT_ID_MASK  0x7F
+#define DS_BUTTON_PAD_CLICK_MASK  0x02
 
 namespace DeviceUSB{
     extern const unsigned char DualSenseUSBReportDescriptor[];

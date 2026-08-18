@@ -58,6 +58,9 @@ typedef struct _DEVICE_CONTEXT
     WDFQUEUE             InterruptMsgQueue;
     WDFTIMER             DebounceTimer;
 
+
+    USHORT currentScanTime;
+
 } DEVICE_CONTEXT, *PDEVICE_CONTEXT;
 
 //
