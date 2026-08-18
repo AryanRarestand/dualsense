@@ -41,7 +41,7 @@ DualSenseQueueInitialize(
         &queue
     );
     if (!NT_SUCCESS(status)) {
-        print_kd("WdfIoQueueCreate failed 0x%x\n", status);
+        print_kd("[DualSense] WdfIoQueueCreate failed 0x%x\n", status);
         return status;
     }
 
@@ -55,7 +55,7 @@ DualSenseQueueInitialize(
     );
 
     if (!NT_SUCCESS(status)) {
-        print_kd("WdfIoQueueCreate failed 0x%x\n", status);
+        print_kd("[DualSense] WdfIoQueueCreate failed 0x%x\n", status);
         return status;
     }
 
@@ -85,15 +85,8 @@ DualSenseEvtIoInternalDeviceControl(
     switch (IoControlCode) {
     case IOCTL_HID_GET_DEVICE_DESCRIPTOR: { 
         status = RequestCopyFromBuffer(Request,
-            &DualSenseDeviceDescriptor,
+            &DeviceUSB::DualSenseDeviceDescriptor,
             deviceContext->DsHidDescriptor.bLength);
-
-        //print_kd("[DualSense] HID Descriptor Bytes:\n");
-
-        //for (ULONG i = 0; i < deviceContext->DsHidDescriptor.bLength; i++) {
-        //    print_kd("%02X ", DualSenseDeviceDescriptor[i]);
-        //}
-        //print_kd("\n");
 
         break;
     }
@@ -119,30 +112,18 @@ DualSenseEvtIoInternalDeviceControl(
 
     case IOCTL_HID_GET_REPORT_DESCRIPTOR:
     {
-        //size_t reportDescSize;
-        //PVOID reportDescBuffer = WdfMemoryGetBuffer(deviceContext->DsReportDescriptorHandle, &reportDescSize);
-
-
         status = RequestCopyFromBuffer(Request,
-            (PVOID) & DualSenseUSBReportDescriptor,
-            DualSenseDeviceDescriptor.DescriptorList[0].wReportLength);
-
-
-        print_kd("[DualSense] HID Report Bytes:\n");
-
-        for (ULONG i = 0; i < DualSenseDeviceDescriptor.DescriptorList[0].wReportLength; i++) {
-            print_kd("%02X ", DualSenseUSBReportDescriptor[i]);
-        }
-        print_kd("\n");
+            (PVOID) &DeviceUSB::DualSenseUSBReportDescriptor,
+            DeviceUSB::DualSenseDeviceDescriptor.DescriptorList[0].wReportLength);
 
         break;
     }
 
-    case IOCTL_HID_READ_REPORT:             // METHOD_NEITHER
+    case IOCTL_HID_READ_REPORT:
         status = WdfRequestForwardToIoQueue(Request, deviceContext->InterruptMsgQueue);
 
         if (!NT_SUCCESS(status)) {
-            print_kd("WdfRequestForwardToIoQueue failed with status: 0x%x\n", status);
+            print_kd("[DualSense] WdfRequestForwardToIoQueue failed with status: 0x%x\n", status);
 
             WdfRequestComplete(Request, status);
         }
@@ -156,10 +137,46 @@ DualSenseEvtIoInternalDeviceControl(
         //status = WriteReport(queueContext, Request);
         break;
 
-    case IOCTL_HID_GET_FEATURE:             // METHOD_OUT_DIRECT TODO:
-
-        //status = GetFeature(queueContext, Request);
+    case IOCTL_HID_GET_FEATURE:             // METHOD_OUT_DIRECT
+    {
+        WDFMEMORY memory;
+        size_t outputBufferLength;
+        PUCHAR outputBuffer;
+        
+        status = WdfRequestRetrieveOutputMemory(Request, &memory);
+        if (NT_SUCCESS(status)) {
+            outputBuffer = (PUCHAR)WdfMemoryGetBuffer(memory, &outputBufferLength);
+            if (outputBufferLength >= 1) {
+                UCHAR reportId = outputBuffer[0];
+                
+                if (reportId == 0x42 && outputBufferLength >= 3) {
+                    // PTP Configuration Feature Report
+                    outputBuffer[0] = 0x42; // Report ID
+                    outputBuffer[1] = 0x02; // Maximum Contacts (2)
+                    outputBuffer[2] = 0x00; // Pad Type (0 = Touchpad)
+                    WdfRequestSetInformation(Request, 3);
+                    status = STATUS_SUCCESS;
+                } else if (reportId == 0x43 && outputBufferLength >= 256) {
+                    // PTP Certification Status Feature Report
+                    RtlZeroMemory(outputBuffer, outputBufferLength);
+                    outputBuffer[0] = 0x43; // Report ID
+                    
+                    // Windows requires a 256-byte blob for PTPHQA. 
+                    // Any valid 256 byte response allows basic PTP features.
+                    outputBuffer[1] = 0xFC;
+                    outputBuffer[2] = 0x28;
+                    
+                    WdfRequestSetInformation(Request, 256);
+                    status = STATUS_SUCCESS;
+                } else {
+                    status = STATUS_NOT_SUPPORTED;
+                }
+            } else {
+                status = STATUS_INVALID_BUFFER_SIZE;
+            }
+        }
         break;
+    }
 
     case IOCTL_HID_SET_FEATURE:             // METHOD_IN_DIRECT TODO:
 
@@ -246,15 +263,15 @@ Return Value:
 
     status = WdfRequestRetrieveOutputMemory(Request, &memory);
     if (!NT_SUCCESS(status)) {
-        KdPrint(("WdfRequestRetrieveOutputMemory failed 0x%x\n", status));
+        print_kd("[DualSense] WdfRequestRetrieveOutputMemory failed 0x%x\n", status);
         return status;
     }
 
     WdfMemoryGetBuffer(memory, &outputBufferLength);
     if (outputBufferLength < NumBytesToCopyFrom) {
         status = STATUS_INVALID_BUFFER_SIZE;
-        KdPrint(("RequestCopyFromBuffer: buffer too small. Size %d, expect %d\n",
-            (int)outputBufferLength, (int)NumBytesToCopyFrom));
+        print_kd("[DualSense] RequestCopyFromBuffer: buffer too small. Size %d, expect %d\n",
+            (int)outputBufferLength, (int)NumBytesToCopyFrom);
         return status;
     }
 
@@ -262,8 +279,9 @@ Return Value:
         0,
         SourceBuffer,
         NumBytesToCopyFrom);
+
     if (!NT_SUCCESS(status)) {
-        KdPrint(("WdfMemoryCopyFromBuffer failed 0x%x\n", status));
+        print_kd("[DualSense] WdfMemoryCopyFromBuffer failed 0x%x\n", status);
         return status;
     }
 
