@@ -1,4 +1,4 @@
-#include "DeviceUSB.h"
+#include "Driver.h"
 
 namespace DeviceUSB {
     // Define the descriptors here to avoid LNK2005 multiply defined symbols
@@ -92,45 +92,125 @@ namespace DeviceUSB {
             0x85, 0xF5, 0x09, 0x36, 0x95, 0x03, 0xB1, 0x02,
             0xC0,              // End Collection (Ends the Gamepad)
             // =========================================================================
-            // TOP LEVEL COLLECTION 2: VIRTUAL MOUSE (Added by us!)
+            // TOP LEVEL COLLECTION 2: PRECISION TOUCHPAD
             // =========================================================================
-            0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
-            0x09, 0x02,        // Usage (Mouse) - Tells Windows this collection is a Mouse
-            0xA1, 0x01,        // Collection (Application) - Start of the Mouse collection
+            0x05, 0x0D,        // Usage Page (Digitizers)
+            0x09, 0x05,        // Usage (Touch Pad)
+            0xA1, 0x01,        // Collection (Application)
+            0x85, 0x41,        //   Report ID (65 / 0x41) - Input Report
 
-            0x85, 0x41,        //   Report ID (65 / 0x41) - CHANGED TO BUST WINDOWS CACHE!
-
-            0x09, 0x01,        //   Usage (Pointer) - The mouse controls a pointer
-            0xA1, 0x00,        //   Collection (Physical) - Start of the physical pointer data
-
-            // --- Mouse Buttons (Left, Right, Middle) ---
-            0x05, 0x09,        //     Usage Page (Button)
-            0x19, 0x01,        //     Usage Minimum (Button 1 - Left Click)
-            0x29, 0x03,        //     Usage Maximum (Button 3 - Middle Click)
-            0x15, 0x00,        //     Logical Minimum (0) - Unpressed
-            0x25, 0x01,        //     Logical Maximum (1) - Pressed
-            0x95, 0x03,        //     Report Count (3) - We have 3 buttons
-            0x75, 0x01,        //     Report Size (1) - Each is 1 bit
-            0x81, 0x02,        //     Input (Data,Var,Abs) - Declare the 3 button bits
-
-            // --- Mouse Button Padding ---
-            0x95, 0x05,        //     Report Count (1)
-            0x81, 0x03,        //     Input (Const,Var,Abs) - (3 bits + 5 bits = 1 full byte for buttons)
-
-            // --- Mouse X and Y Movement ---
+            // --- Finger 1 ---
+            0x05, 0x0D,        //   Usage Page (Digitizers)
+            0x09, 0x22,        //   Usage (Finger)
+            0xA1, 0x02,        //   Collection (Logical)
+            0x09, 0x42,        //     Usage (Tip Switch)
+            0x15, 0x00,        //     Logical Minimum (0)
+            0x25, 0x01,        //     Logical Maximum (1)
+            0x75, 0x01,        //     Report Size (1)
+            0x95, 0x01,        //     Report Count (1)
+            0x81, 0x02,        //     Input (Data,Var,Abs)
+            0x09, 0x47,        //     Usage (Confidence)
+            0x81, 0x02,        //     Input (Data,Var,Abs)
+            0x09, 0x51,        //     Usage (Contact Identifier)
+            0x25, 0x0F,        //     Logical Maximum (15)
+            0x75, 0x06,        //     Report Size (6)
+            0x95, 0x01,        //     Report Count (1)
+            0x81, 0x02,        //     Input (Data,Var,Abs)
             0x05, 0x01,        //     Usage Page (Generic Desktop Ctrls)
             0x09, 0x30,        //     Usage (X)
+            0x26, 0x80, 0x07,  //     Logical Maximum (1920)
+            0x75, 0x10,        //     Report Size (16)
+            0x95, 0x01,        //     Report Count (1)
+            0x81, 0x02,        //     Input (Data,Var,Abs)
             0x09, 0x31,        //     Usage (Y)
-            0x15, 0x81,        //     Logical Minimum (-127)  <-- 8-bit signed
-            0x25, 0x7F,        //     Logical Maximum (127)   <-- 8-bit signed
-            0x35, 0x00,        //     Physical Minimum (0)    <-- RESET
-            0x45, 0x00,        //     Physical Maximum (0)    <-- RESET
-            0x75, 0x08,        //     Report Size (8)
-            0x95, 0x02,        //     Report Count (2)
-            0x81, 0x06,        //     Input (Data,Var,Rel)
+            0x26, 0x38, 0x04,  //     Logical Maximum (1080)
+            0x81, 0x02,        //     Input (Data,Var,Abs)
+            0xC0,              //   End Collection
 
-            0xC0,              //   End Collection (Ends Physical Pointer)
-            0xC0               // End Collection (Ends the Mouse)
+            // --- Finger 2 ---
+            0x05, 0x0D,        //   Usage Page (Digitizers)
+            0x09, 0x22,        //   Usage (Finger)
+            0xA1, 0x02,        //   Collection (Logical)
+            0x09, 0x42,        //     Usage (Tip Switch)
+            0x15, 0x00,        //     Logical Minimum (0)
+            0x25, 0x01,        //     Logical Maximum (1)
+            0x75, 0x01,        //     Report Size (1)
+            0x95, 0x01,        //     Report Count (1)
+            0x81, 0x02,        //     Input (Data,Var,Abs)
+            0x09, 0x47,        //     Usage (Confidence)
+            0x81, 0x02,        //     Input (Data,Var,Abs)
+            0x09, 0x51,        //     Usage (Contact Identifier)
+            0x25, 0x0F,        //     Logical Maximum (15)
+            0x75, 0x06,        //     Report Size (6)
+            0x95, 0x01,        //     Report Count (1)
+            0x81, 0x02,        //     Input (Data,Var,Abs)
+            0x05, 0x01,        //     Usage Page (Generic Desktop Ctrls)
+            0x09, 0x30,        //     Usage (X)
+            0x26, 0x80, 0x07,  //     Logical Maximum (1920)
+            0x75, 0x10,        //     Report Size (16)
+            0x95, 0x01,        //     Report Count (1)
+            0x81, 0x02,        //     Input (Data,Var,Abs)
+            0x09, 0x31,        //     Usage (Y)
+            0x26, 0x38, 0x04,  //     Logical Maximum (1080)
+            0x81, 0x02,        //     Input (Data,Var,Abs)
+            0xC0,              //   End Collection
+
+            // --- Scan Time ---
+            0x05, 0x0D,        //   Usage Page (Digitizers)
+            0x09, 0x56,        //   Usage (Scan Time)
+            0x27, 0xFF, 0xFF, 0x00, 0x00, // Logical Maximum (65535)
+            0x75, 0x10,        //   Report Size (16)
+            0x95, 0x01,        //   Report Count (1)
+            0x81, 0x02,        //   Input (Data,Var,Abs)
+
+            // --- Contact Count ---
+            0x05, 0x0D,        //   Usage Page (Digitizers)
+            0x09, 0x54,        //   Usage (Contact Count)
+            0x25, 0x02,        //   Logical Maximum (2)
+            0x75, 0x08,        //   Report Size (8)
+            0x95, 0x01,        //   Report Count (1)
+            0x81, 0x02,        //   Input (Data,Var,Abs)
+
+            // --- Button ---
+            0x05, 0x09,        //   Usage Page (Button)
+            0x09, 0x01,        //   Usage Minimum (Button 1)
+            0x25, 0x01,        //   Logical Maximum (1)
+            0x75, 0x01,        //   Report Size (1)
+            0x95, 0x01,        //   Report Count (1)
+            0x81, 0x02,        //   Input (Data,Var,Abs)
+
+            // --- Padding (7 bits) ---
+            0x75, 0x07,        //   Report Size (7)
+            0x95, 0x01,        //   Report Count (1)
+            0x81, 0x03,        //   Input (Const,Var,Abs)
+
+            // =========================================================================
+            // FEATURE REPORTS FOR PTP CONFIGURATION & CERTIFICATION
+            // =========================================================================
+            0x85, 0x42,        //   Report ID (66 / 0x42) - PTP Configuration
+            0x05, 0x0D,        //   Usage Page (Digitizers)
+            0x09, 0x55,        //   Usage (Contact Count Maximum)
+            0x25, 0x02,        //   Logical Maximum (2)
+            0x75, 0x08,        //   Report Size (8)
+            0x95, 0x01,        //   Report Count (1)
+            0xB1, 0x02,        //   Feature (Data,Var,Abs)
+            0x09, 0x59,        //   Usage (Pad Type)
+            0x15, 0x00,        //   Logical Minimum (0)
+            0x25, 0x01,        //   Logical Maximum (1)
+            0x75, 0x08,        //   Report Size (8)
+            0x95, 0x01,        //   Report Count (1)
+            0xB1, 0x02,        //   Feature (Data,Var,Abs)
+
+            0x85, 0x43,        //   Report ID (67 / 0x43) - PTP Certification Status
+            0x06, 0x00, 0xFF,  //   Usage Page (Vendor Defined 0xFF00)
+            0x09, 0xC5,        //   Usage (0xC5)
+            0x15, 0x00,        //   Logical Minimum (0)
+            0x26, 0xFF, 0x00,  //   Logical Maximum (255)
+            0x75, 0x08,        //   Report Size (8)
+            0x96, 0x00, 0x01,  //   Report Count (256)
+            0xB1, 0x02,        //   Feature (Data,Var,Abs)
+
+            0xC0               // End Collection (Ends the Touch Pad)
     };
     HID_DESCRIPTOR DualSenseDeviceDescriptor = {
             0x09,       // bLength (9 bytes)
@@ -145,6 +225,30 @@ namespace DeviceUSB {
                     }
             }
     };
+#pragma pack(push, 1)
+    typedef struct _DS_TOUCH_POINT {
+        UCHAR Contact;
+        UCHAR X_Lo;
+        UCHAR X_Hi_Y_Lo;
+        UCHAR Y_Hi;
+    } DS_TOUCH_POINT, * PDS_TOUCH_POINT;
+    typedef struct _PTP_CONTACT {
+        UCHAR TipSwitch : 1;
+        UCHAR Confidence : 1;
+        UCHAR ContactID : 6;
+        USHORT X;
+        USHORT Y;
+    } PTP_CONTACT, * PPTP_CONTACT;
+
+    typedef struct _PTP_REPORT {
+        UCHAR ReportId;
+        PTP_CONTACT Contacts[2];
+        USHORT ScanTime;
+        UCHAR ContactCount;
+        UCHAR Button;
+    } PTP_REPORT, * PPTP_REPORT;
+#pragma pack(pop)
+
 
     VOID DualSenseEvtUsbInterruptPipeReadComplete(
             WDFUSBPIPE Pipe,
@@ -170,51 +274,63 @@ namespace DeviceUSB {
             WdfRequestComplete(request, status);
         }
         // =======================================================
-        // 2. POP REQUEST 2: Parse touchpad and send Virtual Mouse (0x41)
+        // 2. POP REQUEST 2: Parse touchpad and send PTP Report (0x41)
         // =======================================================
         if (NumBytesTransferred >= 41) { // Safety check to ensure touchpad bytes exist
             status = WdfIoQueueRetrieveNextRequest(deviceContext->InterruptMsgQueue, &request);
             if (NT_SUCCESS(status)) {
-                VIRTUAL_MOUSE_REPORT mouseReport = {0};
-                mouseReport.ReportId = 0x41; // MATCHES NEW DESCRIPTOR
+                PTP_REPORT ptpReport = {0};
+                ptpReport.ReportId = 0x41; // MATCHES NEW DESCRIPTOR
                 PDS_TOUCH_POINT points = (PDS_TOUCH_POINT)(usbData + 33);
+                
                 BOOLEAN f1Active = (points[0].Contact & 0x80) == 0;
                 SHORT f1X = ((points[0].X_Hi_Y_Lo & 0x0F) << 8) | points[0].X_Lo;
                 SHORT f1Y = (points[0].Y_Hi << 4) | ((points[0].X_Hi_Y_Lo & 0xF0) >> 4);
+                
                 BOOLEAN f2Active = (points[1].Contact & 0x80) == 0;
                 SHORT f2X = ((points[1].X_Hi_Y_Lo & 0x0F) << 8) | points[1].X_Lo;
                 SHORT f2Y = (points[1].Y_Hi << 4) | ((points[1].X_Hi_Y_Lo & 0xF0) >> 4);
-                int dx = 0;
-                int dy = 0;
-                if (f1Active && deviceContext->Finger1Active) {
-                    dx = (f1X - deviceContext->Finger1PrevX) / 2;
-                    dy = (f1Y - deviceContext->Finger1PrevY) / 2;
-                } else if (f2Active && deviceContext->Finger2Active) {
-                    dx = (f2X - deviceContext->Finger2PrevX) / 2;
-                    dy = (f2Y - deviceContext->Finger2PrevY) / 2;
+                
+                UCHAR contactCount = 0;
+                
+                if (f1Active) {
+                    ptpReport.Contacts[0].TipSwitch = 1;
+                    ptpReport.Contacts[0].Confidence = 1;
+                    ptpReport.Contacts[0].ContactID = points[0].Contact & 0x7F; // Use raw contact ID from DualSense
+                    ptpReport.Contacts[0].X = f1X;
+                    ptpReport.Contacts[0].Y = f1Y;
+                    contactCount++;
                 }
-                // Clamp to safe 8-bit limits so Windows mouhid.sys doesn't freak out
-                if (dx > 127) dx = 127;
-                if (dx < -127) dx = -127;
-                if (dy > 127) dy = 127;
-                if (dy < -127) dy = -127;
-                mouseReport.DeltaX = (CHAR) dx;
-                mouseReport.DeltaY = (CHAR) dy;
+                
+                if (f2Active) {
+                    ptpReport.Contacts[1].TipSwitch = 1;
+                    ptpReport.Contacts[1].Confidence = 1;
+                    ptpReport.Contacts[1].ContactID = points[1].Contact & 0x7F; // Use raw contact ID from DualSense
+                    ptpReport.Contacts[1].X = f2X;
+                    ptpReport.Contacts[1].Y = f2Y;
+                    contactCount++;
+                }
+                
+                ptpReport.ContactCount = contactCount;
+                
+                // Track time
+                static USHORT currentScanTime = 0;
+                currentScanTime += 100; // Increment roughly every 10ms report (100 * 100us)
+                ptpReport.ScanTime = currentScanTime;
+
                 BOOLEAN isPadClicked = (usbData[10] & 0x02) != 0;
                 if (isPadClicked) {
-                    if (f1Active && f2Active) {
-                        mouseReport.Buttons |= 0x02; // Right Click (2 fingers + click)
-                    } else {
-                        mouseReport.Buttons |= 0x01; // Left Click (1 finger + click)
-                    }
+                    ptpReport.Button = 1; // 1 bit for left click (PTP only requires single click state)
                 }
+
                 deviceContext->Finger1Active = f1Active;
                 deviceContext->Finger1PrevX = f1X;
                 deviceContext->Finger1PrevY = f1Y;
                 deviceContext->Finger2Active = f2Active;
                 deviceContext->Finger2PrevX = f2X;
                 deviceContext->Finger2PrevY = f2Y;
-                status = RequestCopyFromBuffer(request, &mouseReport, sizeof(mouseReport));
+                
+                status = RequestCopyFromBuffer(request, &ptpReport, sizeof(ptpReport));
                 WdfRequestComplete(request, status);
             }
         }
@@ -252,15 +368,12 @@ namespace DeviceUSB {
         return status;
     }
 
-    #pragma alloc_text(PAGE, DualSenseInitUsbTarget)
-    #pragma alloc_text(PAGE, DualSenseFindHidInterface)
-    #include <ntddk.h>
-    #include <wdf.h>
-
     NTSTATUS DualSenseEvtDevicePrepareHardware(
             _In_ WDFDEVICE Device,
             _In_ WDFCMRESLIST ResourcesRaw,
-            _In_ WDFCMRESLIST ResourcesTranslated) {
+            _In_ WDFCMRESLIST ResourcesTranslated
+    ) {
+
         UNREFERENCED_PARAMETER(ResourcesRaw);
         UNREFERENCED_PARAMETER(ResourcesTranslated);
 
@@ -270,39 +383,35 @@ namespace DeviceUSB {
 
         PAGED_CODE();
 
-        print_kd("Entering PrepareHardware\n");
+        print_kd("[DualSense] Entering PrepareHardware\n");
 
         deviceContext = GetDeviceContext(Device);
 
-        // ۱. ساخت و پیکربندی USB Target
         status = DualSenseInitUsbTarget(Device, deviceContext);
         if (!NT_SUCCESS(status)) {
-            print_kd("Failed to initialize USB Target Device. Status: 0x%08X\n", status);
+            print_kd("[DualSense] Failed to initialize USB Target Device. Status: 0x%08X\n", status);
             return status;
         }
-
-        // ۲. یافتن Interface مربوط به HID و دریافت Device Descriptor
-        status = DualSenseFindHidInterface(Device, deviceContext, &hidInterfaceNumber);
+        
+        status = DualSenseInitializeHidInterface(Device, deviceContext, &hidInterfaceNumber);
         if (!NT_SUCCESS(status)) {
-            print_kd("Failed to find HID Interface. Status: 0x%08X\n", status);
+            print_kd("[DualSense] Failed to find HID Interface. Status: 0x%08X\n", status);
             return status;
         }
 
-        // ۳. دریافت HID Descriptor و Report Descriptor
         status = DualSenseFetchHidAndReportDescriptors(Device, deviceContext, hidInterfaceNumber);
         if (!NT_SUCCESS(status)) {
-            print_kd("Failed to fetch HID/Report Descriptors. Status: 0x%08X\n", status);
+            print_kd("[DualSense] Failed to fetch HID/Report Descriptors. Status: 0x%08X\n", status);
             return status;
         }
 
-        // ۴. کانفیگ Interrupt Pipe و Continuous Reader
         status = DualSenseInitInterruptPipe(deviceContext);
         if (!NT_SUCCESS(status)) {
-            print_kd("Failed to setup Interrupt Pipe. Status: 0x%08X\n", status);
+            print_kd("[DualSense] Failed to setup Interrupt Pipe. Status: 0x%08X\n", status);
             return status;
         }
 
-        print_kd("PrepareHardware completed successfully\n");
+        print_kd("[DualSense] PrepareHardware completed successfully\n");
         return STATUS_SUCCESS;
     }
 
@@ -316,7 +425,7 @@ namespace DeviceUSB {
         if (DeviceContext->UsbDevice == NULL) {
             status = WdfUsbTargetDeviceCreate(Device, WDF_NO_OBJECT_ATTRIBUTES, &DeviceContext->UsbDevice);
             if (!NT_SUCCESS(status)) {
-                print_kd("WdfUsbTargetDeviceCreate failed: 0x%08X\n", status);
+                print_kd("[DualSense] WdfUsbTargetDeviceCreate failed: 0x%08X\n", status);
                 return status;
             }
         }
@@ -331,7 +440,7 @@ namespace DeviceUSB {
     }
 
     // Helper PrepareHardware: Find HID Interface & Retrieve Device Descriptor
-    NTSTATUS DualSenseFindHidInterface(_In_ WDFDEVICE Device, _In_ PDEVICE_CONTEXT DeviceContext, _Out_ PUCHAR
+    NTSTATUS DualSenseInitializeHidInterface(_In_ WDFDEVICE Device, _In_ PDEVICE_CONTEXT DeviceContext, _Out_ PUCHAR
                                        HidInterfaceNumber) {
         NTSTATUS status = STATUS_SUCCESS;
         WDF_OBJECT_ATTRIBUTES attributes;
@@ -412,12 +521,12 @@ namespace DeviceUSB {
 
             WdfUsbInterfaceGetDescriptor(DeviceContext->UsbInterfaces[i], 0, &interfaceDescriptor);
 
-            print_kd("Interface %u -> Class: 0x%02X, SubClass: 0x%02X\n",
+            print_kd("[DualSense] Interface %u -> Class: 0x%02X, SubClass: 0x%02X\n",
                      i, interfaceDescriptor.bInterfaceClass, interfaceDescriptor.bInterfaceSubClass);
 
             // Class 0x03 = Human Interface Device (HID)
             if (interfaceDescriptor.bInterfaceClass == 0x03) {
-                print_kd("HID Interface identified at index %u (Interface Number %u)\n", i,
+                print_kd("[DualSense] HID Interface identified at index %u (Interface Number %u)\n", i,
                          interfaceDescriptor.bInterfaceNumber);
                 DeviceContext->HidInterface = DeviceContext->UsbInterfaces[i];
                 *HidInterfaceNumber = interfaceDescriptor.bInterfaceNumber;
@@ -461,19 +570,19 @@ namespace DeviceUSB {
         );
 
         if (!NT_SUCCESS(status)) {
-            print_kd("Control Transfer for HID Descriptor failed: 0x%08X\n", status);
+            print_kd("[DualSense] Control Transfer for HID Descriptor failed: 0x%08X\n", status);
             return status;
         }
 
         USHORT reportDescLength = DeviceContext->DsHidDescriptor.DescriptorList[0].wReportLength;
 
         if (reportDescLength == 0) {
-            print_kd("Invalid Report Descriptor length (0) reported by device\n");
+            print_kd("[DualSense] Invalid Report Descriptor length (0) reported by device\n");
             return STATUS_DEVICE_DATA_ERROR;
 
         }
 
-        print_kd("HID Descriptor fetched successfully. Report Descriptor Length: %u bytes\n", reportDescLength);
+        print_kd("[DualSense] HID Descriptor fetched successfully. Report Descriptor Length: %u bytes\n", reportDescLength);
 
         if (DeviceContext->DsReportDescriptorHandle != NULL) {
             WdfObjectDelete(DeviceContext->DsReportDescriptorHandle);
@@ -493,7 +602,7 @@ namespace DeviceUSB {
         );
 
         if (!NT_SUCCESS(status)) {
-            print_kd("Allocation failed for Report Descriptor memory: 0x%08X\n", status);
+            print_kd("[DualSense] Allocation failed for Report Descriptor memory: 0x%08X\n", status);
             return status;
         }
 
@@ -520,16 +629,16 @@ namespace DeviceUSB {
         );
 
         if (!NT_SUCCESS(status)) {
-            print_kd("Control Transfer for Report Descriptor failed: 0x%08X\n", status);
+            print_kd("[DualSense] Control Transfer for Report Descriptor failed: 0x%08X\n", status);
             return status;
         }
 
         if (bytesTransferred != reportDescLength) {
-            print_kd("Report Descriptor mismatch: Expected %u, Got %lu\n", reportDescLength, bytesTransferred);
+            print_kd("[DualSense] Report Descriptor mismatch: Expected %u, Got %lu\n", reportDescLength, bytesTransferred);
             return STATUS_DEVICE_DATA_ERROR;
         }
 
-        print_kd("Successfully fetched Report Descriptor (%lu bytes transferred)\n", bytesTransferred);
+        print_kd("[DualSense] Successfully fetched Report Descriptor (%lu bytes transferred)\n", bytesTransferred);
         return STATUS_SUCCESS;
     }
 
@@ -549,13 +658,13 @@ namespace DeviceUSB {
 
             if (pipeInfo.PipeType == WdfUsbPipeTypeInterrupt && WdfUsbTargetPipeIsInEndpoint(pipe)) {
                 DeviceContext->HidInterruptPipe = pipe;
-                print_kd("Interrupt IN Pipe configured at index %u\n", i);
+                print_kd("[DualSense] Interrupt IN Pipe configured at index %u\n", i);
                 break;
             }
         }
 
         if (!DeviceContext->HidInterruptPipe) {
-            print_kd("Interrupt IN Pipe not found on HID Interface\n");
+            print_kd("[DualSense] Interrupt IN Pipe not found on HID Interface\n");
             return STATUS_INVALID_DEVICE_STATE;
         }
 
