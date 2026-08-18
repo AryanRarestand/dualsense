@@ -462,13 +462,13 @@ namespace DeviceUSB {
         if (DeviceContext->UsbInterfacesMemoryHandle != NULL) {
             WdfObjectDelete(DeviceContext->UsbInterfacesMemoryHandle);
             DeviceContext->UsbInterfacesMemoryHandle = NULL;
-            DeviceContext->UsbInterfaces = NULL;
         }
 
         WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
         attributes.ParentObject = Device;
 
         size_t allocationSize = DeviceContext->UsbInterfaceCount * sizeof(WDFUSBINTERFACE);
+        WDFUSBINTERFACE* localUsbInterfaces = NULL;
 
         status = WdfMemoryCreate(
                 &attributes,
@@ -476,59 +476,34 @@ namespace DeviceUSB {
                 'SIKT',
                 allocationSize,
                 &DeviceContext->UsbInterfacesMemoryHandle,
-                (PVOID*)&DeviceContext->UsbInterfaces
+                (PVOID*)&localUsbInterfaces
         );
 
-        // 2. GUARD: Explicitly check if WDF successfully allocated the memory
         if (!NT_SUCCESS(status)) {
             print_kd("[DualSense] Memory allocation failed for UsbInterfaces array. Status: 0x%X\n", status);
             return status;
         }
 
-        // 3. GUARD: Match ExAllocatePool2 behavior by zeroing out the memory
-        RtlZeroMemory(DeviceContext->UsbInterfaces, allocationSize);
+        RtlZeroMemory(localUsbInterfaces, allocationSize);
 
         print_kd("[DualSense] Total USB Interfaces detected: %hhu\n", DeviceContext->UsbInterfaceCount);
-
-        if (DeviceContext->DsDeviceDescriptorHandle != NULL) {
-            WdfObjectDelete(DeviceContext->DsDeviceDescriptorHandle);
-            DeviceContext->DsDeviceDescriptorHandle = NULL;
-        }
-
-        //Getting Device Descriptor
-        WDF_OBJECT_ATTRIBUTES_INIT(&attributes);
-        attributes.ParentObject = Device;
-        status = WdfMemoryCreate(
-                &attributes,
-                NonPagedPoolNx,
-                'SIKT',
-                sizeof(USB_DEVICE_DESCRIPTOR),
-                &DeviceContext->DsDeviceDescriptorHandle,
-                (PVOID * ) & pdsDeviceDescriptor
-        );
-
-        if (!NT_SUCCESS(status)) {
-            print_kd("[DualSense] WdfMemoryCreate failed for Device Descriptor: 0x%08X\n", status);
-            return status;
-        }
-
-        WdfUsbTargetDeviceGetDeviceDescriptor(DeviceContext->UsbDevice, pdsDeviceDescriptor);
 
         // iterating interfaces
         for (UCHAR i = 0; i < DeviceContext->UsbInterfaceCount; i++) {
             USB_INTERFACE_DESCRIPTOR interfaceDescriptor;
-            DeviceContext->UsbInterfaces[i] = WdfUsbTargetDeviceGetInterface(DeviceContext->UsbDevice, i);
 
-            WdfUsbInterfaceGetDescriptor(DeviceContext->UsbInterfaces[i], 0, &interfaceDescriptor);
+            localUsbInterfaces[i] = WdfUsbTargetDeviceGetInterface(DeviceContext->UsbDevice, i);
+
+            WdfUsbInterfaceGetDescriptor(localUsbInterfaces[i], 0, &interfaceDescriptor);
 
             print_kd("[DualSense] Interface %u -> Class: 0x%02X, SubClass: 0x%02X\n",
                      i, interfaceDescriptor.bInterfaceClass, interfaceDescriptor.bInterfaceSubClass);
 
-            // Class 0x03 = Human Interface Device (HID)
             if (interfaceDescriptor.bInterfaceClass == 0x03) {
                 print_kd("[DualSense] HID Interface identified at index %u (Interface Number %u)\n", i,
                          interfaceDescriptor.bInterfaceNumber);
-                DeviceContext->HidInterface = DeviceContext->UsbInterfaces[i];
+
+                DeviceContext->HidInterface = localUsbInterfaces[i];
                 *HidInterfaceNumber = interfaceDescriptor.bInterfaceNumber;
                 hidFound = TRUE;
             }
