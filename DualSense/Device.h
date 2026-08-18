@@ -33,7 +33,6 @@ typedef struct _DEVICE_CONTEXT
 
     HID_DESCRIPTOR     DsHidDescriptor;
     WDFMEMORY          DsReportDescriptorHandle;
-    WDFMEMORY          DsDeviceDescriptorHandle;
 
     //
     // Touchpad

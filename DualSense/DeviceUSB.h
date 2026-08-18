@@ -38,6 +38,16 @@ namespace DeviceUSB{
     NTSTATUS DualSenseInitializeHidInterface(_In_ WDFDEVICE Device, _In_ PDEVICE_CONTEXT DeviceContext, _Out_ PUCHAR HidInterfaceNumber);
     NTSTATUS DualSenseFetchHidAndReportDescriptors(_In_ WDFDEVICE Device, _In_ PDEVICE_CONTEXT DeviceContext, _In_ UCHAR HidInterfaceNumber);
     NTSTATUS DualSenseInitInterruptPipe(_In_ PDEVICE_CONTEXT DeviceContext);
+    VOID DualSenseProcessGamepadReport(
+        _In_ PDEVICE_CONTEXT DeviceContext,
+        _In_ PUCHAR UsbData,
+        _In_ size_t NumBytesTransferred
+    );
+    VOID DualSenseProcessPtpReport(
+        _In_ PDEVICE_CONTEXT DeviceContext,
+        _In_ PUCHAR UsbData,
+        _In_ size_t NumBytesTransferred
+    );
 }
 
 

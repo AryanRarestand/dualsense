@@ -258,11 +258,14 @@ namespace DeviceUSB {
     ) {
         UNREFERENCED_PARAMETER(Pipe);
 
+        PDEVICE_CONTEXT deviceContext;
+        PUCHAR usbData;
+
         if (NumBytesTransferred == 0)
             return;
 
-        PDEVICE_CONTEXT deviceContext = (PDEVICE_CONTEXT) Context;
-        PUCHAR usbData = (PUCHAR) WdfMemoryGetBuffer(Buffer, NULL);
+        deviceContext = (PDEVICE_CONTEXT) Context;
+        usbData = (PUCHAR) WdfMemoryGetBuffer(Buffer, NULL);
 
         // 1. POP REQUEST 1: Send the raw Gamepad Report (0x01)
         DualSenseProcessGamepadReport(deviceContext, usbData, NumBytesTransferred);
@@ -308,6 +311,7 @@ namespace DeviceUSB {
             _In_ PUCHAR UsbData,
             _In_ size_t NumBytesTransferred
     ) {
+
         // Safety check to ensure touchpad bytes exist
         if (NumBytesTransferred < DS_REPORT_PTP_MIN_SIZE) {
             return;
@@ -480,7 +484,6 @@ namespace DeviceUSB {
                                        HidInterfaceNumber) {
         NTSTATUS status = STATUS_SUCCESS;
         WDF_OBJECT_ATTRIBUTES attributes;
-        PUSB_DEVICE_DESCRIPTOR pdsDeviceDescriptor = NULL;
         BOOLEAN hidFound = FALSE;
 
         PAGED_CODE();

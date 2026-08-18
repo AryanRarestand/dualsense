@@ -98,14 +98,13 @@ DualSenseEvtIoInternalDeviceControl(
         RtlZeroMemory(&deviceAttributes, sizeof(HID_DEVICE_ATTRIBUTES));
         deviceAttributes.Size = sizeof(HID_DEVICE_ATTRIBUTES);
 
-        // Get the raw pointer to the USB Device Descriptor we fetched in PrepareHardware
-        PUSB_DEVICE_DESCRIPTOR usbDeviceDesc =
-            (PUSB_DEVICE_DESCRIPTOR)WdfMemoryGetBuffer(deviceContext->DsDeviceDescriptorHandle, NULL);
+        USB_DEVICE_DESCRIPTOR usbDeviceDesc;
+        WdfUsbTargetDeviceGetDeviceDescriptor(deviceContext->UsbDevice, &usbDeviceDesc);
 
         // Copy the Sony Vendor ID and DualSense Product ID over
-        deviceAttributes.VendorID = usbDeviceDesc->idVendor;
-        deviceAttributes.ProductID = usbDeviceDesc->idProduct;
-        deviceAttributes.VersionNumber = usbDeviceDesc->bcdDevice;
+        deviceAttributes.VendorID = usbDeviceDesc.idVendor;
+        deviceAttributes.ProductID = usbDeviceDesc.idProduct;
+        deviceAttributes.VersionNumber = usbDeviceDesc.bcdDevice;
         status = RequestCopyFromBuffer(Request, &deviceAttributes, sizeof(HID_DEVICE_ATTRIBUTES));
         break;
     }
