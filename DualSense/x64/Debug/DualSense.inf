@@ -1,0 +1,80 @@
+;
+; DualSense.inf
+;
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = HIDClass
+ClassGuid   = {745a17a0-74d3-11d0-b6fe-00a0c90f57da}
+Provider    = %ManufacturerName%
+CatalogFile = DualSense.cat
+DriverVer = 08/16/2026,16.37.54.175
+PnpLockdown = 1
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+DualSense.sys  = 1,,
+
+;*****************************************
+; Install Section
+;*****************************************
+
+[Manufacturer]
+%ManufacturerName% = Standard,NTamd64.10.0...16299
+
+[Standard.NTamd64.10.0...16299]
+%DualSense.DeviceDesc% = DualSense_Device.NT, USB\VID_054C&PID_0CE6
+
+;===============================================================
+;   Install section for Win8 and later
+;   Use the inbox mshidkmdf.sys as the shim
+;===============================================================
+[DualSense_Device.NT]
+CopyFiles = File_Copy
+
+[DualSense_Device.NT.HW]
+AddReg = DualSense_Parameters.AddReg 
+
+[File_Copy]
+DualSense.sys
+
+[DualSense_Parameters.AddReg]
+HKR,,"LowerFilters",0x00010000,"DualSense"
+
+;
+; mshidkmdf is the function driver and DualSense is the lower filter
+;
+[DualSense_Device.NT.Services]
+AddService = DualSense,, DualSense_Service_Inst
+AddService = mshidkmdf, 0x000001fa, mshidkmdf.AddService ;flag 0x2 sets this as the service for the device
+
+[mshidkmdf.AddService]
+ServiceType    = 1                  ; SERVICE_KERNEL_DRIVER
+StartType      = 3                  ; SERVICE_DEMAND_START
+ErrorControl   = 1                  ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %10%\System32\Drivers\mshidkmdf.sys
+
+[DualSense_Service_Inst]
+DisplayName    = %DualSense.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %13%\DualSense.sys
+
+[DualSense_Device.NT.Wdf]
+KmdfService = DualSense, DualSense_wdfsect
+
+[DualSense_wdfsect]
+KmdfLibraryVersion = 1.15
+
+[Strings]
+SPSVCINST_ASSOCSERVICE = 0x00000002
+ManufacturerName = "Alian"
+DiskName = "DualSense Installation Disk"
+DualSense.DeviceDesc = "DualSense Wireless Controller"
+DualSense.SVCDESC = "DualSense Filter Driver"
