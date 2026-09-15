@@ -1,0 +1,16 @@
+﻿  Building 'DualSenseBth' with toolset 'WindowsKernelModeDriver10.0' and the 'Universal' target platform.
+  Stamping x64\Debug\DualSenseBth.inf
+  Stamping [Version] section with DriverVer=09/15/2026,20.27.54.294
+  DualSenseBth.vcxproj -> C:\Users\aryan\source\repos\DualSenseBth\x64\Debug\DualSenseBth.sys
+  Driver is 'Universal'.
+  .........................
+  Signability test complete.
+  
+  Errors:
+  None
+  
+  Warnings:
+  None
+  
+  Catalog generation complete.
+  C:\Users\aryan\source\repos\DualSenseBth\x64\Debug\DualSenseBth\dualsensebth.cat
